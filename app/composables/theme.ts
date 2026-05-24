@@ -1,4 +1,4 @@
-import type { ThemePreference } from "~/bindings";
+import type { ThemePreference } from "~/types";
 
 function Theme() {
   const current = ref<ThemePreference>("system");
@@ -8,7 +8,12 @@ function Theme() {
     // Remove unused class added by Quasar
     document.body.classList.remove("body--light");
 
-    const userPreference = await run("get_theme");
+    const themeCookie = useCookie<ThemePreference>("theme_preference", {
+      default: () => "system",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+
+    const userPreference = themeCookie.value;
 
     cachedPreference = userPreference;
     update(userPreference);
@@ -35,7 +40,8 @@ function Theme() {
       return;
     }
 
-    await run("set_theme", { theme });
+    const themeCookie = useCookie<ThemePreference>("theme_preference");
+    themeCookie.value = theme;
   }
 
   return {

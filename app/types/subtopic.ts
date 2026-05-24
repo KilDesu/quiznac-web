@@ -1,4 +1,4 @@
-import type { Question } from "~/bindings";
+import type { Question } from "~/types";
 
 export interface Subtopics {
   Aéronef: AeronefSubtopic;

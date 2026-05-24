@@ -1,6 +1,5 @@
 <script lang="ts" setup>
-  import { convertFileSrc } from "@tauri-apps/api/core";
-  import type { Question } from "~/bindings";
+  import type { Question } from "~/types";
 
   const emit = defineEmits<{
     save: [question: Question, originalLabel?: string];
@@ -29,8 +28,8 @@
   const imageInputType = ref<"url" | "file">("url");
 
   const imageUrlDraft = ref("");
-  const localImagePath = ref<string | null>(null);
-  let originalImage: string | null = null;
+  const localImage = ref<File | null>(null);
+  let originalImage: string | File | null = null;
 
   watch(
     question,
@@ -39,7 +38,7 @@
         editedQuestion.value = cloneQuestion(emptyQuestion);
         originalImage = null;
         imageUrlDraft.value = "";
-        localImagePath.value = null;
+        localImage.value = null;
         clearFieldErrors();
         return;
       }
@@ -49,17 +48,22 @@
       } else {
         editedQuestion.value = cloneQuestion(newVal);
       }
+
       originalImage = editedQuestion.value.image;
-      imageUrlDraft.value = editedQuestion.value.image ?? "";
-      localImagePath.value = null;
+      imageUrlDraft.value =
+        typeof editedQuestion.value.image === "string"
+          ? editedQuestion.value.image
+          : "";
+
+      localImage.value = null;
       clearFieldErrors();
     },
     { immediate: true },
   );
 
   const previewSrc = computed(() => {
-    if (localImagePath.value) {
-      return convertFileSrc(localImagePath.value);
+    if (localImage.value) {
+      return URL.createObjectURL(localImage.value);
     }
     const u = imageUrlDraft.value.trim();
     return u.length ? u : null;
@@ -138,9 +142,9 @@
 
     if (
       !editedQuestion.value.image &&
-      (localImagePath.value || imageUrlDraft.value)
+      (localImage.value || imageUrlDraft.value)
     ) {
-      editedQuestion.value.image = localImagePath.value ?? imageUrlDraft.value;
+      editedQuestion.value.image = localImage.value ?? imageUrlDraft.value;
     }
 
     if (
@@ -175,7 +179,7 @@
 
   function clearImage() {
     imageUrlDraft.value = "";
-    localImagePath.value = null;
+    localImage.value = null;
     editedQuestion.value.image = null;
     originalImage = null;
   }
@@ -247,7 +251,7 @@
             />
             <AppFile
               v-else
-              v-model="localImagePath"
+              v-model="localImage"
               label="Fichier image"
               :accept="['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif']"
             />
@@ -316,7 +320,7 @@
             </div>
 
             <AppBtn
-              v-else-if="imageUrlDraft.trim() || localImagePath"
+              v-else-if="imageUrlDraft.trim() || localImage"
               flat
               dense
               no-caps

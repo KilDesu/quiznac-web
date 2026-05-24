@@ -1,5 +1,43 @@
-import type { Question } from "~/bindings";
 import type { Topic } from "./subtopic";
+
+export type ThemePreference = "light" | "dark" | "system";
+
+/**
+ * Représente une réponse de QCU/QCM.
+ */
+export type Answer = {
+  /**
+   * La réponse.
+   */
+  label: string;
+  /**
+   * Est-ce que c'est une bonne réponse ou non.
+   * Est Some seulement si `true`, sinon None.
+   */
+  isAnswer: boolean | null;
+};
+
+/**
+ * Représente une question de QCU/QCM.
+ */
+export type Question = {
+  /**
+   * Le texte de la question.
+   */
+  label: string;
+  /**
+   * URL de l'image associée à la question s'il y en a.
+   */
+  image: string | File | null;
+  /**
+   * Les réponses possibles.
+   */
+  answers: Array<Answer>;
+  /**
+   * L'explication de pourquoi les réponses correctes le sont.
+   */
+  explanation: string;
+};
 
 export * from "./subtopic";
 

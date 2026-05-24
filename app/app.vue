@@ -13,7 +13,7 @@
   onBeforeMount(async () => {
     await useTheme.init();
 
-    const apiKey = await run("get_firebase_key");
+    const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
 
     const firebaseConfig = {
       apiKey,
@@ -31,7 +31,6 @@
     });
 
     allTopicsWithData.value = await getAllQuestions(db.value);
-    console.log(allTopicsWithData.value);
   });
 
   onErrorCaptured((err) => {

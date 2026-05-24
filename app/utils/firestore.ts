@@ -1,7 +1,6 @@
 import * as firestore from "firebase/firestore";
 
-import type { Subtopic, SubtopicData, Topic } from "../types";
-import type { Question } from "~/bindings";
+import type { Subtopic, SubtopicData, Topic, Question } from "../types";
 import {
   getTopicFromSubtopic,
   MetadataConverter,
@@ -77,9 +76,8 @@ export async function getAllQuestions(
     const shouldUpdate = await isDataOutOfDate(db, topic);
 
     if (useLocalData || !shouldUpdate) {
-      const localData = await run("load_data", {
-        topic,
-      });
+      const localDataStr = localStorage.getItem(topic);
+      const localData = localDataStr ? JSON.parse(localDataStr) : null;
 
       // If there's up-to-date local data, we use it instead of calling firestore
       if (localData) {
@@ -118,10 +116,7 @@ export async function getAllQuestions(
 
     const data = Object.fromEntries(currentTopicQuestions);
     // Saving new questions to local file
-    await run("save_data", {
-      topic,
-      data,
-    });
+    localStorage.setItem(topic, JSON.stringify(data));
     await updateTimestamps(db, topic);
 
     return [topic, data];
@@ -142,13 +137,8 @@ export async function updateQuestionInSubtopic(
   data: Ref<Partial<Data>>,
   originalLabel?: string,
 ) {
-  if (question.image && !question.image.startsWith("https://i.ibb.co")) {
-    const toUse = question.image.startsWith("http")
-      ? { url: question.image }
-      : { path: question.image };
-
-    const dbImageUrl = await addImageToDb(toUse);
-
+  if (question.image) {
+    const dbImageUrl = await addImageToDb(question.image);
     question.image = dbImageUrl;
   }
 
@@ -196,15 +186,11 @@ export async function addQuestionsToSubtopic(
   const questionsToAdd = Array.isArray(questions) ? questions : [questions];
 
   for await (const question of questionsToAdd) {
-    if (!question.image || question.image.startsWith("https://i.ibb.co")) {
+    if (!question.image) {
       continue;
     }
 
-    const toUse = question.image.startsWith("http")
-      ? { url: question.image }
-      : { path: question.image };
-
-    const dbImageUrl = await addImageToDb(toUse);
+    const dbImageUrl = await addImageToDb(question.image);
     question.image = dbImageUrl;
   }
 
@@ -306,9 +292,9 @@ export async function removeQuestionsFromSubtopic(
 }
 
 async function isDataOutOfDate(db: firestore.Firestore, topic: Topic) {
-  const lastLocalUpdate = await run("get_timestamp", {
-    topic,
-  });
+  const timestampsStr = localStorage.getItem("timestamps");
+  const timestamps = timestampsStr ? JSON.parse(timestampsStr) : {};
+  const lastLocalUpdate = timestamps[topic];
 
   if (!lastLocalUpdate) {
     return true;
@@ -330,7 +316,10 @@ async function updateTimestamps(db: firestore.Firestore, topic: Topic) {
 
   await firestore.setDoc(topicMetaRef, { updatedAt: now }, { merge: true });
 
-  await run("update_timestamp", { timestamp: now, topic });
+  const timestampsStr = localStorage.getItem("timestamps");
+  const timestamps = timestampsStr ? JSON.parse(timestampsStr) : {};
+  timestamps[topic] = now;
+  localStorage.setItem("timestamps", JSON.stringify(timestamps));
 }
 
 async function saveDataLocally(
@@ -338,15 +327,14 @@ async function saveDataLocally(
   subtopic: Subtopic<Topic>,
   data: SubtopicData | null,
 ) {
+  const topicDataStr = localStorage.getItem(topic);
+  const topicData = topicDataStr ? JSON.parse(topicDataStr) : {};
+
   if (!data) {
-    await run("remove_subtopic", { topic, subtopic });
-    return;
+    delete topicData[subtopic];
+  } else {
+    topicData[subtopic] = data.questions;
   }
 
-  await run("save_data", {
-    topic,
-    data: {
-      [subtopic]: data.questions,
-    },
-  });
+  localStorage.setItem(topic, JSON.stringify(topicData));
 }

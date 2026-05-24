@@ -1,7 +1,3 @@
-import { basename, extname } from "@tauri-apps/api/path";
-import { readFile } from "@tauri-apps/plugin-fs";
-import { fetch } from "@tauri-apps/plugin-http";
-
 export interface ImgbbResponse {
   data: {
     id: string;
@@ -41,24 +37,18 @@ export interface ImgbbResponse {
   status: number;
 }
 
-export async function addImageToDb(
-  opts: { path: string } | { url: string },
-): Promise<string> {
-  const apiKey = await run("get_imgbb_key");
+export async function addImageToDb(image: string | File) {
+  if (
+    typeof image === "string" &&
+    (image.startsWith("https://i.ibb.co") || !image.startsWith("http"))
+  ) {
+    return null;
+  }
+
+  const apiKey = import.meta.env.VITE_IMGBB_API_KEY;
 
   const data = new FormData();
-
-  if ("path" in opts) {
-    const { path } = opts;
-    const file = await readFile(path);
-    const extension = await extname(path);
-    const name = await basename(path);
-
-    const blob = new Blob([file], { type: `image/${extension}` });
-    data.append("image", blob, name);
-  } else {
-    data.append("image", opts.url);
-  }
+  data.append("image", image);
 
   const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
     method: "POST",

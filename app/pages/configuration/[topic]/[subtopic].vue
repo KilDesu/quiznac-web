@@ -3,10 +3,8 @@
   import typescript from "highlight.js/lib/languages/typescript";
   import "highlight.js/styles/github-dark.css";
 
-  import { readTextFile } from "@tauri-apps/plugin-fs";
   import type { Firestore } from "firebase/firestore";
-
-  import type { Answer, Question } from "~/bindings";
+  import type { Answer, Question } from "~/types";
   import type { Subtopic, Topic } from "~/types";
 
   hljs.registerLanguage("typescript", typescript);
@@ -60,7 +58,7 @@ type Question = {
 
   const questionToEdit = ref<Question | "new" | null>(null);
   const importDialog = ref(false);
-  const importedFilePath = ref<string | null>(null);
+  const importedFile = ref<File | null>(null);
   const questionToDelete = ref<Question | null>(null);
 
   const questions = computed(() => {
@@ -97,7 +95,7 @@ type Question = {
   }
 
   async function handleJsonAdd() {
-    if (!db?.value || !importedFilePath.value) {
+    if (!db?.value || !importedFile.value) {
       return;
     }
 
@@ -107,15 +105,22 @@ type Question = {
       return;
     }
 
-    const content = await readTextFile(importedFilePath.value);
-    const questionsToImport = JSON.parse(content) as Question[];
+    const fileReader = new FileReader();
+    fileReader.onload = async (e) => {
+      const content = e.target?.result as string;
+      if (!content) return;
+      const questionsToImport = JSON.parse(content) as Question[];
 
-    await addQuestionsToSubtopic(
-      db.value,
-      subtopic as Subtopic<Topic>,
-      questionsToImport,
-      data,
-    );
+      await addQuestionsToSubtopic(
+        db.value!,
+        subtopic as Subtopic<Topic>,
+        questionsToImport,
+        data,
+      );
+      importDialog.value = false;
+      importedFile.value = null;
+    };
+    fileReader.readAsText(importedFile.value);
   }
 
   async function handleQuestionDelete(question: Question) {
@@ -251,7 +256,7 @@ type Question = {
 
         <QCardSection>
           <AppFile
-            v-model="importedFilePath"
+            v-model="importedFile"
             label="Fichier à importer"
             :accept="['json']"
           />
@@ -277,13 +282,13 @@ type Question = {
             label="Annuler"
             @click="
               importDialog = false;
-              importedFilePath = null;
+              importedFile = null;
             "
           />
           <AppBtn
             class="primary"
             label="Importer"
-            :disable="!importedFilePath"
+            :disable="!importedFile"
             @click="handleJsonAdd"
           />
         </QCardActions>

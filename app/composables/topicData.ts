@@ -1,6 +1,9 @@
 import type { Topic } from "~/types";
 
-export const useTopicData = (topic: string | string[] | undefined) => {
+export const useTopicData = (
+  topic: string | string[] | undefined,
+  data: Partial<Data>,
+) => {
   if (!topic || Array.isArray(topic)) {
     throw new Error(
       "Le nom du cours passé en URL n'est pas valide : " +
@@ -8,14 +11,18 @@ export const useTopicData = (topic: string | string[] | undefined) => {
     );
   }
 
-  const data = useData();
   const decoded = decodeURI(topic);
 
-  if (!(decoded in data.value)) {
+  if (!(decoded in data)) {
+    console.warn({
+      decoded,
+      data,
+    });
+
     throw new Error(
       "Le cours demandé n'existe pas dans la base de données : " + decoded,
     );
   }
 
-  return data.value[decoded as Topic];
+  return data[decoded as Topic];
 };
