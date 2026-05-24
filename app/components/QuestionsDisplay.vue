@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-  import type { Question } from "~/bindings";
+  import type { Question } from "~/types";
 
   const { questions } = defineProps<{ questions: Question[] }>();
 
@@ -287,7 +287,7 @@
 
         <div
           v-if="currentQuestion.image"
-          class="flex justify-center"
+          class="flex justify-center q-pr-md"
           style="width: 100%; min-width: 0"
         >
           <img
@@ -295,7 +295,7 @@
             alt=""
             class="rounded-borders block"
             style="
-              max-width: 100%;
+              max-width: 100vw;
               max-height: 20rem;
               object-fit: contain;
               border-radius: 0.75rem;
@@ -367,17 +367,19 @@
                   : "Mauvaise réponse 🫠"
               }}
             </div>
-            <div
-              v-if="!wasCorrect[viewIndex]"
-              v-for="correct in [correctIndices(currentQuestion)]"
-              class="text-body2 q-mb-sm"
-            >
-              <span class="text-weight-medium">
-                {{ handlePlural("Réponse", correct.length) }}
-                {{ handlePlural("attendue", correct.length) }} :
-              </span>
-              {{ answerLabels(currentQuestion, correct) }}
-            </div>
+            <template v-if="!wasCorrect[viewIndex]">
+              <div
+                v-for="(correct, index) in [correctIndices(currentQuestion)]"
+                :key="index"
+                class="text-body2 q-mb-sm"
+              >
+                <span class="text-weight-medium">
+                  {{ handlePlural("Réponse", correct.length) }}
+                  {{ handlePlural("attendue", correct.length) }} :
+                </span>
+                {{ answerLabels(currentQuestion, correct) }}
+              </div>
+            </template>
             <div v-if="currentQuestion.explanation.trim()" class="text-body2">
               <span class="text-weight-medium">Explication : </span>
               {{ currentQuestion.explanation }}
@@ -392,7 +394,8 @@
         <div class="col"></div>
 
         <div
-          v-for="isLast in [frontier === questions.length]"
+          v-for="(isLast, index) in [frontier === questions.length]"
+          :key="index"
           class="col text-center"
         >
           <AppBtn
@@ -428,12 +431,13 @@
         <div class="text-h6 q-mb-md">Résultats</div>
         <div class="text-body1 column q-gutter-xs">
           <span
-            v-for="percent in [
+            v-for="(percent, index) in [
               (
                 (resultsSummary.correct * 100) /
                 resultsSummary.answered
               ).toFixed(0),
             ]"
+            :key="index"
           >
             Score :
             <span class="text-weight-medium">
@@ -494,7 +498,10 @@
                   }}
                 </div>
                 <div
-                  v-for="correct in [correctIndices(questions[questionIndex]!)]"
+                  v-for="(correct, index) in [
+                    correctIndices(questions[questionIndex]!),
+                  ]"
+                  :key="index"
                 >
                   <span class="text-weight-medium">
                     {{ handlePlural("Réponse", correct.length) }}
@@ -541,6 +548,7 @@
   .ellipsis-2-lines {
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }

@@ -4,8 +4,13 @@
   import "highlight.js/styles/github-dark.css";
 
   import type { Firestore } from "firebase/firestore";
-  import type { Answer, Question } from "~/types";
-  import type { Subtopic, Topic } from "~/types";
+  import type {
+    Answer,
+    Question,
+    QuestionEdit,
+    Subtopic,
+    Topic,
+  } from "~/types";
 
   hljs.registerLanguage("typescript", typescript);
 
@@ -145,7 +150,7 @@ type Question = {
   }
 
   async function handleQuestionSave(
-    question: Question,
+    question: QuestionEdit,
     originalLabel?: string,
   ) {
     if (!db?.value || !questionToEdit.value) {
@@ -181,19 +186,27 @@ type Question = {
 
 <template>
   <div>
-    <div class="text-h3 q-mb-lg">Chapitre "{{ route.params.subtopic }}"</div>
+    <div :class="[useScreenMd('text-h3', 'text-h4'), 'q-mb-lg']">
+      Chapitre "{{ route.params.subtopic }}"
+    </div>
 
-    <div class="flex q-mb-sm" style="gap: 1rem">
+    <div class="flex q-mb-sm" :style="{ gap: useScreenMd('1rem') }">
       <QSpace />
 
-      <AppBtn icon="upload" label="Importer" @click="importDialog = true">
+      <AppBtn
+        icon="upload"
+        label="Importer"
+        :no-caps="useScreenSm()"
+        @click="importDialog = true"
+      >
         <QTooltip class="surface-variant text-body2">
           Importer un fichier JSON
         </QTooltip>
       </AppBtn>
       <AppBtn
         icon="add"
-        label="Ajouter une question"
+        :label="useScreenMd('Ajouter une question', 'Ajouter')"
+        :no-caps="useScreenSm()"
         @click="questionToEdit = 'new'"
       />
     </div>
@@ -209,14 +222,19 @@ type Question = {
           </QItemSection>
 
           <QItemSection v-if="question.image" side>
-            <AppIcon name="image" />
+            <AppIcon name="image" :size="useScreenSm('md', 'sm')" />
           </QItemSection>
-          <QItemSection side>
-            <AppBtn icon="edit" @click.stop="questionToEdit = question" />
+          <QItemSection side :style="useScreenXs('padding-left: 0')">
+            <AppBtn
+              icon="edit"
+              :size="useScreenSm('md', 'sm')"
+              @click.stop="questionToEdit = question"
+            />
           </QItemSection>
-          <QItemSection side>
+          <QItemSection side :style="useScreenXs('padding-left: 0')">
             <AppBtn
               icon="delete"
+              :size="useScreenSm('md', 'sm')"
               class="error-container"
               @click.stop="questionToDelete = question"
             />
@@ -242,11 +260,7 @@ type Question = {
 
     <QuestionEdit v-model="questionToEdit" @save="handleQuestionSave" />
 
-    <DeleteDialog
-      v-model="questionToDelete"
-      text="cette question"
-      @delete="handleQuestionDelete"
-    >
+    <DeleteDialog v-model="questionToDelete" @delete="handleQuestionDelete">
       cette question
     </DeleteDialog>
 

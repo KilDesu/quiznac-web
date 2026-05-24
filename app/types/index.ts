@@ -28,7 +28,7 @@ export type Question = {
   /**
    * URL de l'image associée à la question s'il y en a.
    */
-  image: string | File | null;
+  image: string | null;
   /**
    * Les réponses possibles.
    */
@@ -37,6 +37,10 @@ export type Question = {
    * L'explication de pourquoi les réponses correctes le sont.
    */
   explanation: string;
+};
+
+export type QuestionEdit = Omit<Question, "image"> & {
+  image: string | File | null;
 };
 
 export * from "./subtopic";

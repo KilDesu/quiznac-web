@@ -59,23 +59,24 @@
       >
         <template #header>
           <QItemSection avatar>
-            <QIcon name="book" />
+            <AppIcon name="book" />
           </QItemSection>
 
           <QItemSection>
-            <div class="text-h6">
-              <span>{{ topic }}</span>
-              <span class="text-weight-thin q-ml-sm">
-                — {{ Object.keys(topicData).length }}
-                {{ handlePlural("chapitre", Object.keys(topicData).length) }}
-              </span>
-            </div>
+            <QItemLabel class="text-h6">
+              {{ topic }}
+            </QItemLabel>
+            <QItemLabel class="text-body1 text-weight-light whitespace-nowrap">
+              {{ Object.keys(topicData).length }}
+              {{ handlePlural("chapitre", Object.keys(topicData).length) }}
+            </QItemLabel>
           </QItemSection>
 
           <QItemSection side>
             <AppBtn
               icon="add"
-              label="Ajouter un chapitre"
+              :label="useScreenSm('Ajouter un chapitre')"
+              :size="useScreenMd('md', 'sm')"
               outline
               color="tertiary"
               @click.stop="topicToAddSubtopicTo = topic as Topic"
@@ -90,14 +91,16 @@
             :inset-level="1"
             style="border-radius: inherit"
           >
-            <QItemSection>
-              <div class="text-body1 text-weight-medium">
-                <span>{{ subtopic }}</span>
-                <span class="text-weight-light q-ml-sm">
-                  — {{ questions.length }}
-                  {{ handlePlural("question", questions.length) }}
-                </span>
-              </div>
+            <QItemSection class="text-body1 text-weight-medium">
+              <QItemLabel>
+                {{ subtopic }}
+              </QItemLabel>
+              <QItemLabel
+                class="text-caption text-weight-light whitespace-nowrap"
+              >
+                {{ questions.length }}
+                {{ handlePlural("question", questions.length) }}
+              </QItemLabel>
             </QItemSection>
 
             <QItemSection side>
@@ -145,8 +148,8 @@
     </QDialog>
 
     <DeleteDialog
-      v-model="toDelete"
       v-slot="props"
+      v-model="toDelete"
       title="ce chapitre"
       @delete="deleteSubtopic"
     >

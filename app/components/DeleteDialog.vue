@@ -8,7 +8,7 @@
   }
 
   const modelValue = defineModel<T | null>();
-  const props = defineProps<Props>();
+  const { title = undefined } = defineProps<Props>();
 
   const emit = defineEmits<Emits>();
 </script>

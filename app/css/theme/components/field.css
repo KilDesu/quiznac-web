@@ -50,7 +50,12 @@
   }
 }
 
-.q-menu {
+.q-menu,
+.q-select--dialog {
+  background-color: var(--surface-variant);
+  color: var(--on-surface-variant);
+  --current-color: var(--on-surface-variant);
+
   border-radius: 0.75rem;
   /* hide scrollbar */
   scrollbar-width: none; /* Firefox */

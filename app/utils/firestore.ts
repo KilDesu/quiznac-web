@@ -1,6 +1,12 @@
 import * as firestore from "firebase/firestore";
 
-import type { Subtopic, SubtopicData, Topic, Question } from "../types";
+import type {
+  Subtopic,
+  SubtopicData,
+  Topic,
+  Question,
+  QuestionEdit,
+} from "../types";
 import {
   getTopicFromSubtopic,
   MetadataConverter,
@@ -133,14 +139,11 @@ export async function getAllQuestions(
 export async function updateQuestionInSubtopic(
   db: firestore.Firestore,
   subtopic: Subtopic<Topic>,
-  question: Question,
+  question: QuestionEdit,
   data: Ref<Partial<Data>>,
   originalLabel?: string,
 ) {
-  if (question.image) {
-    const dbImageUrl = await addImageToDb(question.image);
-    question.image = dbImageUrl;
-  }
+  const convertedQuestion = await convertQuestions(question);
 
   const topic = getTopicFromSubtopic(subtopic);
 
@@ -162,7 +165,9 @@ export async function updateQuestionInSubtopic(
 
   const currentSubtopicData = docSnap.data();
   const updatedQuestions = currentSubtopicData.questions.map((q) =>
-    q.label === (originalLabel ?? question.label) ? question : q,
+    q.label === (originalLabel ?? convertedQuestion.label)
+      ? convertedQuestion
+      : q,
   );
 
   await firestore.updateDoc(subtopicRef, {
@@ -180,19 +185,12 @@ export async function updateQuestionInSubtopic(
 export async function addQuestionsToSubtopic(
   db: firestore.Firestore,
   subtopic: Subtopic<Topic>,
-  questions: Question | Question[],
+  questions: QuestionEdit | QuestionEdit[],
   data: Ref<Partial<Data>>,
 ) {
   const questionsToAdd = Array.isArray(questions) ? questions : [questions];
 
-  for await (const question of questionsToAdd) {
-    if (!question.image) {
-      continue;
-    }
-
-    const dbImageUrl = await addImageToDb(question.image);
-    question.image = dbImageUrl;
-  }
+  const convertedQuestions = await convertQuestions(questionsToAdd);
 
   const topic = getTopicFromSubtopic(subtopic);
   const subtopicRef = firestore
@@ -208,7 +206,7 @@ export async function addQuestionsToSubtopic(
 
   if (!docSnap.exists()) {
     const initialData: SubtopicData = {
-      questions: questionsToAdd,
+      questions: convertedQuestions,
     };
     await firestore.setDoc(subtopicRef, initialData);
 
@@ -337,4 +335,23 @@ async function saveDataLocally(
   }
 
   localStorage.setItem(topic, JSON.stringify(topicData));
+}
+
+async function convertQuestions(questions: QuestionEdit): Promise<Question>;
+async function convertQuestions(questions: QuestionEdit[]): Promise<Question[]>;
+async function convertQuestions(
+  questions: QuestionEdit | QuestionEdit[],
+): Promise<Question | Question[]> {
+  if (!Array.isArray(questions)) {
+    if (!questions.image) {
+      return questions as Question;
+    }
+
+    return {
+      ...questions,
+      image: await addImageToDb(questions.image),
+    };
+  }
+
+  return Promise.all(questions.map((q) => convertQuestions(q)));
 }

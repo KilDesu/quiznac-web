@@ -1,5 +1,12 @@
 <script lang="ts" setup>
+  const route = useRoute();
   const isDrawerOpen = ref(true);
+
+  watch(route, () => {
+    if (!useScreenMd()) {
+      isDrawerOpen.value = false;
+    }
+  });
 </script>
 
 <template>

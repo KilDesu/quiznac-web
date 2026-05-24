@@ -30,7 +30,6 @@
     v-bind="rest"
     outlined
     map-options
-    popup-content-class="surface-variant"
     :options-selected-class="optionSelectedClass"
     :style="`--highlight-color: ${highlightColor}`"
   >

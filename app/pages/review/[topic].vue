@@ -37,7 +37,7 @@
       .toSorted((a, b) => a.localeCompare(b)),
   );
 
-  watch(topicData, (newTopicData) => {
+  watch(topicData, () => {
     options.value = {
       subtopics: [],
       limitQuestions: true,

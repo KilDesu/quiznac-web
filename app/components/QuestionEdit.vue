@@ -1,8 +1,8 @@
 <script lang="ts" setup>
-  import type { Question } from "~/types";
+  import type { Question, QuestionEdit } from "~/types";
 
   const emit = defineEmits<{
-    save: [question: Question, originalLabel?: string];
+    save: [question: QuestionEdit, originalLabel?: string];
     close: [];
   }>();
 
@@ -18,7 +18,9 @@
 
   const question = defineModel<Question | "new" | null>({ required: true });
 
-  const editedQuestion = ref<Question>(cloneQuestion(emptyQuestion));
+  const editedQuestion = ref<QuestionEdit>(
+    cloneQuestion(emptyQuestion) as QuestionEdit,
+  );
   const closedBySave = ref(false);
 
   const labelError = ref("");
@@ -29,14 +31,12 @@
 
   const imageUrlDraft = ref("");
   const localImage = ref<File | null>(null);
-  let originalImage: string | File | null = null;
 
   watch(
     question,
     (newVal) => {
       if (!newVal) {
         editedQuestion.value = cloneQuestion(emptyQuestion);
-        originalImage = null;
         imageUrlDraft.value = "";
         localImage.value = null;
         clearFieldErrors();
@@ -49,7 +49,6 @@
         editedQuestion.value = cloneQuestion(newVal);
       }
 
-      originalImage = editedQuestion.value.image;
       imageUrlDraft.value =
         typeof editedQuestion.value.image === "string"
           ? editedQuestion.value.image
@@ -181,7 +180,6 @@
     imageUrlDraft.value = "";
     localImage.value = null;
     editedQuestion.value.image = null;
-    originalImage = null;
   }
 </script>
 
