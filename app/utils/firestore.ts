@@ -1,5 +1,6 @@
 import * as firestore from "firebase/firestore";
 
+import { Topics } from "../types";
 import type {
   Subtopic,
   SubtopicData,
@@ -12,15 +13,6 @@ import {
   MetadataConverter,
   subtopicDataConverter,
 } from "./converter";
-
-const ALL_TOPICS: Topic[] = [
-  "Aéronef",
-  "ATLA",
-  "Équipements et systèmes",
-  "Météo",
-  "Moteur",
-  "Navigation",
-];
 
 export async function addSubtopic(
   db: firestore.Firestore,
@@ -78,7 +70,7 @@ export async function getAllQuestions(
 ) {
   if (!db) return {};
 
-  const fetchPromises = ALL_TOPICS.map(async (topic) => {
+  const fetchPromises = Topics.map(async (topic) => {
     const shouldUpdate = await isDataOutOfDate(db, topic);
 
     if (useLocalData || !shouldUpdate) {

@@ -113,7 +113,7 @@ export const NavSubtopics = [
   "Considérations opérationnelles",
   "Les systèmes de navigation",
   "Introduction à la radionavigation",
-  "VEF (VHF Direction Finding)",
+  "VDF (VHF Direction Finding)",
   "ADF (Automatic Direction Finder) et NDB (Non Directional Finder)",
   "VOR (VHF Omnidirectional Radio Range)",
   "DME (Distance Measuring Equipment)",
