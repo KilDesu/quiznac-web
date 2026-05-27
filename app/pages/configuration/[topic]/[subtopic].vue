@@ -4,13 +4,11 @@
   import "highlight.js/styles/github-dark.css";
 
   import type { Firestore } from "firebase/firestore";
-  import type {
-    Answer,
-    Question,
-    QuestionEdit,
-    Subtopic,
-    Topic,
-  } from "~/types";
+  import type { Answer, Question, QuestionEdit } from "~/types";
+
+  definePageMeta({
+    middleware: "subtopic-validation",
+  });
 
   hljs.registerLanguage("typescript", typescript);
 
@@ -66,19 +64,12 @@ type Question = {
   const importedFile = ref<File | null>(null);
   const questionToDelete = ref<Question | null>(null);
 
+  const params = computed(() => getParams(route.params));
+
   const questions = computed(() => {
-    const { topic, subtopic } = route.params;
+    const { topic, subtopic } = params.value;
 
-    if (
-      !topic ||
-      !subtopic ||
-      typeof topic !== "string" ||
-      typeof subtopic !== "string"
-    ) {
-      return [];
-    }
-
-    const subtopicData = data.value?.[topic as Topic]?.[subtopic];
+    const subtopicData = data.value?.[topic]?.[subtopic];
 
     if (!subtopicData) {
       return [];
@@ -100,15 +91,11 @@ type Question = {
   }
 
   async function handleJsonAdd() {
-    if (!db?.value || !importedFile.value) {
+    if (!params.value || !db?.value || !importedFile.value) {
       return;
     }
 
-    const { subtopic } = route.params;
-
-    if (typeof subtopic !== "string") {
-      return;
-    }
+    const { topic, subtopic } = params.value;
 
     const fileReader = new FileReader();
     fileReader.onload = async (e) => {
@@ -118,7 +105,8 @@ type Question = {
 
       await addQuestionsToSubtopic(
         db.value!,
-        subtopic as Subtopic<Topic>,
+        topic,
+        subtopic,
         questionsToImport,
         data,
       );
@@ -133,15 +121,12 @@ type Question = {
       return;
     }
 
-    const { subtopic } = route.params;
-
-    if (typeof subtopic !== "string") {
-      return;
-    }
+    const { topic, subtopic } = params.value;
 
     await removeQuestionsFromSubtopic(
       db.value,
-      subtopic as Subtopic<Topic>,
+      topic,
+      subtopic,
       question,
       data,
     );
@@ -157,23 +142,19 @@ type Question = {
       return;
     }
 
-    const { subtopic } = route.params;
+    const { topic, subtopic } = params.value;
 
     if (typeof subtopic !== "string") {
       return;
     }
 
     if (questionToEdit.value === "new") {
-      await addQuestionsToSubtopic(
-        db.value,
-        subtopic as Subtopic<Topic>,
-        question,
-        data,
-      );
+      await addQuestionsToSubtopic(db.value, topic, subtopic, question, data);
     } else {
       await updateQuestionInSubtopic(
         db.value,
-        subtopic as Subtopic<Topic>,
+        topic,
+        subtopic,
         question,
         data,
         originalLabel,

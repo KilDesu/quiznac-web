@@ -15,6 +15,11 @@ export interface SubtopicData {
   questions: Question[];
 }
 
+export interface QuiznacRouteParams {
+  topic: Topic;
+  subtopic: Subtopic<Topic>;
+}
+
 export type SubtopicDocument<T extends Topic> = {
   [K in Subtopic<T>]: SubtopicData;
 };
@@ -130,3 +135,12 @@ export const NavSubtopics = [
   "Procédures d'approche aux instruments",
 ] as const;
 export type NavSubtopic = UnionFromArray<typeof NavSubtopics>;
+
+export const Subtopics: Record<Topic, readonly Subtopic<Topic>[]> = {
+  Aéronef: AeronefSubtopics,
+  ATLA: AtlaSubtopics,
+  "Équipements et systèmes": EquipementsSubtopics,
+  Météo: MeteoSubtopics,
+  Moteur: MoteurSubtopics,
+  Navigation: NavSubtopics,
+};

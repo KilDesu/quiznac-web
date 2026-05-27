@@ -5,17 +5,7 @@ import type {
   SnapshotOptions,
   WithFieldValue,
 } from "firebase/firestore";
-
-import {
-  AeronefSubtopics,
-  AtlaSubtopics,
-  EquipementsSubtopics,
-  MeteoSubtopics,
-  MoteurSubtopics,
-  NavSubtopics,
-  type SubtopicData,
-  type Topic,
-} from "../types";
+import type { SubtopicData } from "~/types";
 
 export const subtopicDataConverter: FirestoreDataConverter<SubtopicData> = {
   toFirestore(subtopicData: WithFieldValue<SubtopicData>): DocumentData {
@@ -51,34 +41,3 @@ export const MetadataConverter: FirestoreDataConverter<{ updatedAt: number }> =
       return { updatedAt: data.updatedAt };
     },
   };
-
-export function getTopicFromSubtopic<T extends Topic = Topic>(
-  subtopic: string,
-): T {
-  const test = <T extends Readonly<string[]>>(subs: T) =>
-    subs.some((topic) => topic === subtopic);
-
-  let topic: Topic | null = null;
-
-  if (test(AeronefSubtopics)) {
-    topic = "Aéronef";
-  } else if (test(AtlaSubtopics)) {
-    topic = "ATLA";
-  } else if (test(EquipementsSubtopics)) {
-    topic = "Équipements et systèmes";
-  } else if (test(MeteoSubtopics)) {
-    topic = "Météo";
-  } else if (test(MoteurSubtopics)) {
-    topic = "Moteur";
-  } else if (test(NavSubtopics)) {
-    topic = "Navigation";
-  }
-
-  if (!topic) {
-    throw new Error(
-      `Le chapitre donné ne fait partie d'aucun cours BASIC connu ("${subtopic}")`,
-    );
-  }
-
-  return topic as T;
-}

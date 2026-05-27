@@ -4,6 +4,10 @@
   import type { QSelectProps } from "quasar";
   import type { Subtopic, Topic, Question } from "~/types";
 
+  definePageMeta({
+    middleware: "topic-validation",
+  });
+
   interface RevisionOptions {
     limitQuestions: boolean;
     subtopics: Subtopic<Topic>[];
@@ -24,12 +28,13 @@
   const questions = ref<Question[]>([]);
   const readyToRevise = ref(false);
 
+  const topic = computed(() => getTopicParam(route.params));
   const topicData = computed(() => {
     if (!Object.keys(data.value).length) {
       return;
     }
 
-    return useTopicData(route.params.topic, data.value);
+    return useTopicData(topic.value, data.value);
   });
   const allSubtopics = computed(() =>
     (Object.keys(topicData.value || {}) as Subtopic<Topic>[])

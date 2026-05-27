@@ -1,16 +1,6 @@
 import type { Topic } from "~/types";
 
-export const useTopicData = (
-  topic: string | string[] | undefined,
-  data: Partial<Data>,
-) => {
-  if (!topic || Array.isArray(topic)) {
-    throw new Error(
-      "Le nom du cours passé en URL n'est pas valide : " +
-        JSON.stringify(topic),
-    );
-  }
-
+export const useTopicData = (topic: Topic, data: Partial<Data>) => {
   const decoded = decodeURI(topic);
 
   if (!(decoded in data)) {

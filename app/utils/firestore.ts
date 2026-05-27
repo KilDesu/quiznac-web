@@ -8,11 +8,7 @@ import type {
   Question,
   QuestionEdit,
 } from "../types";
-import {
-  getTopicFromSubtopic,
-  MetadataConverter,
-  subtopicDataConverter,
-} from "./converter";
+import { MetadataConverter, subtopicDataConverter } from "./converter";
 
 export async function addSubtopic(
   db: firestore.Firestore,
@@ -130,14 +126,13 @@ export async function getAllQuestions(
 
 export async function updateQuestionInSubtopic(
   db: firestore.Firestore,
+  topic: Topic,
   subtopic: Subtopic<Topic>,
   question: QuestionEdit,
   data: Ref<Partial<Data>>,
   originalLabel?: string,
 ) {
   const convertedQuestion = await convertQuestions(question);
-
-  const topic = getTopicFromSubtopic(subtopic);
 
   const subtopicRef = firestore
     .doc(db, topic, subtopic)
@@ -176,6 +171,7 @@ export async function updateQuestionInSubtopic(
 
 export async function addQuestionsToSubtopic(
   db: firestore.Firestore,
+  topic: Topic,
   subtopic: Subtopic<Topic>,
   questions: QuestionEdit | QuestionEdit[],
   data: Ref<Partial<Data>>,
@@ -184,7 +180,6 @@ export async function addQuestionsToSubtopic(
 
   const convertedQuestions = await convertQuestions(questionsToAdd);
 
-  const topic = getTopicFromSubtopic(subtopic);
   const subtopicRef = firestore
     .doc(db, topic, subtopic)
     .withConverter(subtopicDataConverter);
@@ -230,13 +225,13 @@ export async function addQuestionsToSubtopic(
 
 export async function removeQuestionsFromSubtopic(
   db: firestore.Firestore,
+  topic: Topic,
   subtopic: Subtopic<Topic>,
-  question: Question | Question[],
+  questions: Question | Question[],
   data: Ref<Partial<Data>>,
 ) {
-  const questionsToRemove = Array.isArray(question) ? question : [question];
+  const questionsToRemove = Array.isArray(questions) ? questions : [questions];
 
-  const topic = getTopicFromSubtopic(subtopic);
   const subtopicRef = firestore
     .doc(db, topic, subtopic)
     .withConverter(subtopicDataConverter);
