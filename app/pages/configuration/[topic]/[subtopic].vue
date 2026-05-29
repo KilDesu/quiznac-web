@@ -75,7 +75,7 @@ type Question = {
       return [];
     }
 
-    return subtopicData;
+    return subtopicData.toSorted((a, b) => a.label.localeCompare(b.label));
   });
 
   function getAnswerCountLabel(answers: Answer[]) {
