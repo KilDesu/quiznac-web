@@ -103,6 +103,10 @@ type Question = {
       if (!content) return;
       const questionsToImport = JSON.parse(content) as Question[];
 
+      if (!validateData(questionsToImport)) {
+        return;
+      }
+
       await addQuestionsToSubtopic(
         db.value!,
         topic,
@@ -162,6 +166,30 @@ type Question = {
     }
 
     questionToEdit.value = null;
+  }
+
+  function validateData(questions: Question[]) {
+    for (const i in questions) {
+      const question = questions[i]!;
+
+      if (question.answers.length < 2) {
+        toast(
+          `La question n°${i} "${question.label}" doit avoir au moins 2 réponses pour être valide.`,
+          "error",
+        );
+        return false;
+      }
+
+      if (question.answers.every((answer) => !answer.isAnswer)) {
+        toast(
+          `La question n°${i} "${question.label}" doit avoir au moins 1 bonne réponse pour être valide.`,
+          "error",
+        );
+        return false;
+      }
+    }
+
+    return true;
   }
 </script>
 
