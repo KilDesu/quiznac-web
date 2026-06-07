@@ -13,7 +13,7 @@ import { MetadataConverter, chapterDataConverter } from "./converter";
 export async function addChapter(
   db: firestore.Firestore,
   course: Course,
-  chapter: Chapter<Course>,
+  chapter: Chapter,
   data: Ref<Partial<Data>>,
 ) {
   const chapterRef = firestore.doc(db, course, chapter);
@@ -33,7 +33,7 @@ export async function addChapter(
 export async function removeChapter(
   db: firestore.Firestore,
   course: Course,
-  chapter: Chapter<Course>,
+  chapter: Chapter,
   data: Ref<Partial<Data>>,
 ) {
   const chapterRef = firestore.doc(db, course, chapter);
@@ -88,17 +88,14 @@ export async function getAllQuestions(
       `Aucune donnée pour ${course}`,
     );
 
-    const currentCourseQuestions: [Chapter<Course>, Question[]][] = [];
+    const currentCourseQuestions: [Chapter, Question[]][] = [];
 
     snapshot.docs.forEach((docSnap) => {
       if (docSnap.id !== "metadata") {
         const data = docSnap.data();
 
         if (data.questions) {
-          currentCourseQuestions.push([
-            docSnap.id as Chapter<Course>,
-            data.questions,
-          ]);
+          currentCourseQuestions.push([docSnap.id as Chapter, data.questions]);
         }
       }
     });
@@ -127,7 +124,7 @@ export async function getAllQuestions(
 export async function updateQuestionInChapter(
   db: firestore.Firestore,
   course: Course,
-  chapter: Chapter<Course>,
+  chapter: Chapter,
   question: QuestionEdit,
   data: Ref<Partial<Data>>,
   originalLabel?: string,
@@ -172,7 +169,7 @@ export async function updateQuestionInChapter(
 export async function addQuestionsToChapter(
   db: firestore.Firestore,
   course: Course,
-  chapter: Chapter<Course>,
+  chapter: Chapter,
   questions: QuestionEdit | QuestionEdit[],
   data: Ref<Partial<Data>>,
 ) {
@@ -226,7 +223,7 @@ export async function addQuestionsToChapter(
 export async function removeQuestionsFromChapter(
   db: firestore.Firestore,
   course: Course,
-  chapter: Chapter<Course>,
+  chapter: Chapter,
   questions: Question | Question[],
   data: Ref<Partial<Data>>,
 ) {
@@ -309,7 +306,7 @@ async function updateTimestamps(db: firestore.Firestore, course: Course) {
 
 async function saveDataLocally(
   course: Course,
-  chapter: Chapter<Course>,
+  chapter: Chapter,
   data: ChapterData | null,
 ) {
   const courseDataStr = localStorage.getItem(course);
