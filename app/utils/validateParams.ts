@@ -1,51 +1,55 @@
 import type { RouteParams } from "vue-router";
 import {
-  Subtopics,
-  Topics,
+  Chapters,
+  Courses,
   type QuiznacRouteParams,
-  type Subtopic,
-  type Topic,
+  type Chapter,
+  type Course,
 } from "~/types";
 
-export function validateTopic(params: RouteParams) {
-  const { topic } = params;
-
-  if (!topic || typeof topic !== "string" || !Topics.includes(topic as Topic)) {
-    return null;
-  }
-
-  return topic as Topic;
-}
-
-export function validateSubtopic(params: RouteParams, topic: Topic) {
-  const { subtopic } = params;
+export function validateCourse(params: RouteParams) {
+  const { course } = params;
 
   if (
-    !subtopic ||
-    typeof subtopic !== "string" ||
-    !Subtopics[topic].includes(subtopic as Subtopic<Topic>)
+    !course ||
+    typeof course !== "string" ||
+    !Courses.includes(course as Course)
   ) {
     return null;
   }
 
-  return subtopic as Subtopic<Topic>;
+  return course as Course;
 }
 
-export function getTopicParam(params: RouteParams) {
-  const { topic } = params;
+export function validateChapter(params: RouteParams, course: Course) {
+  const { chapter } = params;
 
-  return topic as Topic;
+  if (
+    !chapter ||
+    typeof chapter !== "string" ||
+    !Chapters[course].includes(chapter as Chapter<Course>)
+  ) {
+    return null;
+  }
+
+  return chapter as Chapter<Course>;
 }
 
-export function getSubtopicParam(params: RouteParams) {
-  const { subtopic } = params;
+export function getCourseParam(params: RouteParams) {
+  const { course } = params;
 
-  return subtopic as Subtopic<Topic>;
+  return course as Course;
+}
+
+export function getChapterParam(params: RouteParams) {
+  const { chapter } = params;
+
+  return chapter as Chapter<Course>;
 }
 
 export function getParams(params: RouteParams): QuiznacRouteParams {
-  const topic = getTopicParam(params);
-  const subtopic = getSubtopicParam(params);
+  const course = getCourseParam(params);
+  const chapter = getChapterParam(params);
 
-  return { topic, subtopic };
+  return { course, chapter };
 }

@@ -1,30 +1,30 @@
 import type { Question } from "~/types";
 
-export interface Subtopics {
-  Aéronef: AeronefSubtopic;
-  ATLA: AtlaSubtopic;
-  "Équipements et systèmes": EquipementsSubtopic;
-  Météo: MeteoSubtopic;
-  Moteur: MoteurSubtopic;
-  Navigation: NavSubtopic;
+export interface Chapters {
+  Aéronef: AeronefChapter;
+  ATLA: AtlaChapter;
+  "Équipements et systèmes": EquipementsChapter;
+  Météo: MeteoChapter;
+  Moteur: MoteurChapter;
+  Navigation: NavChapter;
 }
 
-export type Subtopic<T extends Topic> = Subtopics[T];
+export type Chapter<T extends Course> = Chapters[T];
 
-export interface SubtopicData {
+export interface ChapterData {
   questions: Question[];
 }
 
 export interface QuiznacRouteParams {
-  topic: Topic;
-  subtopic: Subtopic<Topic>;
+  course: Course;
+  chapter: Chapter<Course>;
 }
 
-export type SubtopicDocument<T extends Topic> = {
-  [K in Subtopic<T>]: SubtopicData;
+export type ChapterDocument<T extends Course> = {
+  [K in Chapter<T>]: ChapterData;
 };
 
-export const Topics = [
+export const Courses = [
   "Aéronef",
   "ATLA",
   "Équipements et systèmes",
@@ -32,9 +32,9 @@ export const Topics = [
   "Moteur",
   "Navigation",
 ] as const;
-export type Topic = UnionFromArray<typeof Topics>;
+export type Course = UnionFromArray<typeof Courses>;
 
-export const AtlaSubtopics = [
+export const AtlaChapters = [
   "Introduction et organisations",
   "Unités et tables d'épellation",
   "Services de la circulation aérienne",
@@ -46,9 +46,9 @@ export const AtlaSubtopics = [
   "Routes",
   "Attentes",
 ] as const;
-export type AtlaSubtopic = UnionFromArray<typeof AtlaSubtopics>;
+export type AtlaChapter = UnionFromArray<typeof AtlaChapters>;
 
-export const AeronefSubtopics = [
+export const AeronefChapters = [
   "Introduction",
   "Élements de structure",
   "Unités et pilotage",
@@ -60,9 +60,9 @@ export const AeronefSubtopics = [
   "Anémométrie",
   "Stabilité",
 ] as const;
-export type AeronefSubtopic = UnionFromArray<typeof AeronefSubtopics>;
+export type AeronefChapter = UnionFromArray<typeof AeronefChapters>;
 
-export const EquipementsSubtopics = [
+export const EquipementsChapters = [
   "Signaux et ondes radio",
   "Principes de la radio",
   "Communications vocales pour l'ATC",
@@ -70,9 +70,9 @@ export const EquipementsSubtopics = [
   "Communications non vocales",
   "Radiogoniométrie",
 ] as const;
-export type EquipementsSubtopic = UnionFromArray<typeof EquipementsSubtopics>;
+export type EquipementsChapter = UnionFromArray<typeof EquipementsChapters>;
 
-export const MeteoSubtopics = [
+export const MeteoChapters = [
   "Atmosphère",
   "Énergie",
   "Température",
@@ -98,12 +98,12 @@ export const MeteoSubtopics = [
   "Messages en route",
   "Cartes météorologiques",
 ] as const;
-export type MeteoSubtopic = UnionFromArray<typeof MeteoSubtopics>;
+export type MeteoChapter = UnionFromArray<typeof MeteoChapters>;
 
-export const MoteurSubtopics = [] as const;
-export type MoteurSubtopic = UnionFromArray<typeof MoteurSubtopics>;
+export const MoteurChapters = [] as const;
+export type MoteurChapter = UnionFromArray<typeof MoteurChapters>;
 
-export const NavSubtopics = [
+export const NavChapters = [
   "Introduction",
   "La Terre",
   "Positionnement",
@@ -134,13 +134,13 @@ export const NavSubtopics = [
   "Les minima pour les approches aux instruments",
   "Procédures d'approche aux instruments",
 ] as const;
-export type NavSubtopic = UnionFromArray<typeof NavSubtopics>;
+export type NavChapter = UnionFromArray<typeof NavChapters>;
 
-export const Subtopics: Record<Topic, readonly Subtopic<Topic>[]> = {
-  Aéronef: AeronefSubtopics,
-  ATLA: AtlaSubtopics,
-  "Équipements et systèmes": EquipementsSubtopics,
-  Météo: MeteoSubtopics,
-  Moteur: MoteurSubtopics,
-  Navigation: NavSubtopics,
+export const Chapters: Record<Course, readonly Chapter<Course>[]> = {
+  Aéronef: AeronefChapters,
+  ATLA: AtlaChapters,
+  "Équipements et systèmes": EquipementsChapters,
+  Météo: MeteoChapters,
+  Moteur: MoteurChapters,
+  Navigation: NavChapters,
 };

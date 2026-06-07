@@ -1,63 +1,63 @@
 import * as firestore from "firebase/firestore";
 
-import { Topics } from "../types";
+import { Courses } from "../types";
 import type {
-  Subtopic,
-  SubtopicData,
-  Topic,
+  Chapter,
+  ChapterData,
+  Course,
   Question,
   QuestionEdit,
 } from "../types";
-import { MetadataConverter, subtopicDataConverter } from "./converter";
+import { MetadataConverter, chapterDataConverter } from "./converter";
 
-export async function addSubtopic(
+export async function addChapter(
   db: firestore.Firestore,
-  topic: Topic,
-  subtopic: Subtopic<Topic>,
+  course: Course,
+  chapter: Chapter<Course>,
   data: Ref<Partial<Data>>,
 ) {
-  const subtopicRef = firestore.doc(db, topic, subtopic);
+  const chapterRef = firestore.doc(db, course, chapter);
 
-  await firestore.setDoc(subtopicRef, {
+  await firestore.setDoc(chapterRef, {
     questions: [],
   });
 
-  await saveDataLocally(topic, subtopic, { questions: [] });
-  await updateTimestamps(db, topic);
+  await saveDataLocally(course, chapter, { questions: [] });
+  await updateTimestamps(db, course);
   data.value = await getAllQuestions(db, true);
 
-  toast(`Chapitre "${subtopic}" ajouté au cours "${topic}"`);
-  console.log(`Chapitre "${subtopic}" ajouté au cours "${topic}"`);
+  toast(`Chapitre "${chapter}" ajouté au cours "${course}"`);
+  console.log(`Chapitre "${chapter}" ajouté au cours "${course}"`);
 }
 
-export async function removeSubtopic(
+export async function removeChapter(
   db: firestore.Firestore,
-  topic: Topic,
-  subtopic: Subtopic<Topic>,
+  course: Course,
+  chapter: Chapter<Course>,
   data: Ref<Partial<Data>>,
 ) {
-  const subtopicRef = firestore.doc(db, topic, subtopic);
+  const chapterRef = firestore.doc(db, course, chapter);
 
-  await firestore.deleteDoc(subtopicRef);
+  await firestore.deleteDoc(chapterRef);
 
-  let topicData = data.value[topic];
-  if (!topicData) {
+  let courseData = data.value[course];
+  if (!courseData) {
     return;
   }
 
-  topicData = Object.fromEntries(
-    Object.entries(topicData).filter(([key]) => key !== subtopic),
+  courseData = Object.fromEntries(
+    Object.entries(courseData).filter(([key]) => key !== chapter),
   );
   data.value = {
     ...data.value,
-    [topic]: topicData,
+    [course]: courseData,
   };
 
-  await saveDataLocally(topic, subtopic, null);
-  await updateTimestamps(db, topic);
+  await saveDataLocally(course, chapter, null);
+  await updateTimestamps(db, course);
 
-  toast(`Chapitre "${subtopic}" supprimé du cours "${topic}"`);
-  console.log(`Chapitre "${subtopic}" supprimé du cours "${topic}"`);
+  toast(`Chapitre "${chapter}" supprimé du cours "${course}"`);
+  console.log(`Chapitre "${chapter}" supprimé du cours "${course}"`);
 }
 
 export async function getAllQuestions(
@@ -66,113 +66,113 @@ export async function getAllQuestions(
 ) {
   if (!db) return {};
 
-  const fetchPromises = Topics.map(async (topic) => {
-    const shouldUpdate = await isDataOutOfDate(db, topic);
+  const fetchPromises = Courses.map(async (course) => {
+    const shouldUpdate = await isDataOutOfDate(db, course);
 
     if (useLocalData || !shouldUpdate) {
-      const localDataStr = localStorage.getItem(topic);
+      const localDataStr = localStorage.getItem(course);
       const localData = localDataStr ? JSON.parse(localDataStr) : null;
 
       // If there's up-to-date local data, we use it instead of calling firestore
       if (localData) {
-        return [topic, localData];
+        return [course, localData];
       }
     }
 
-    const subtopicsQuery = firestore
-      .collectionGroup(db, topic)
-      .withConverter(subtopicDataConverter);
+    const chaptersQuery = firestore
+      .collectionGroup(db, course)
+      .withConverter(chapterDataConverter);
 
     const snapshot = await tryAsync(
-      firestore.getDocs(subtopicsQuery),
-      `Aucune donnée pour ${topic}`,
+      firestore.getDocs(chaptersQuery),
+      `Aucune donnée pour ${course}`,
     );
 
-    const currentTopicQuestions: [Subtopic<Topic>, Question[]][] = [];
+    const currentCourseQuestions: [Chapter<Course>, Question[]][] = [];
 
     snapshot.docs.forEach((docSnap) => {
       if (docSnap.id !== "metadata") {
         const data = docSnap.data();
 
         if (data.questions) {
-          currentTopicQuestions.push([
-            docSnap.id as Subtopic<Topic>,
+          currentCourseQuestions.push([
+            docSnap.id as Chapter<Course>,
             data.questions,
           ]);
         }
       }
     });
 
-    if (!currentTopicQuestions.length) {
-      // No questions for the current topic
+    if (!currentCourseQuestions.length) {
+      // No questions for the current course
       return null;
     }
 
-    const data = Object.fromEntries(currentTopicQuestions);
+    const data = Object.fromEntries(currentCourseQuestions);
     // Saving new questions to local file
-    localStorage.setItem(topic, JSON.stringify(data));
-    await updateTimestamps(db, topic);
+    localStorage.setItem(course, JSON.stringify(data));
+    await updateTimestamps(db, course);
 
-    return [topic, data];
+    return [course, data];
   });
 
   const results = await Promise.all(fetchPromises);
   const validResults = results.filter(
-    (res): res is [Topic, TopicData] => res !== null,
+    (res): res is [Course, CourseData] => res !== null,
   );
 
   return Object.fromEntries(validResults);
 }
 
-export async function updateQuestionInSubtopic(
+export async function updateQuestionInChapter(
   db: firestore.Firestore,
-  topic: Topic,
-  subtopic: Subtopic<Topic>,
+  course: Course,
+  chapter: Chapter<Course>,
   question: QuestionEdit,
   data: Ref<Partial<Data>>,
   originalLabel?: string,
 ) {
   const convertedQuestion = await convertQuestions(question);
 
-  const subtopicRef = firestore
-    .doc(db, topic, subtopic)
-    .withConverter(subtopicDataConverter);
+  const chapterRef = firestore
+    .doc(db, course, chapter)
+    .withConverter(chapterDataConverter);
 
   const docSnap = await tryAsync(
-    firestore.getDoc(subtopicRef),
-    `Impossible de mettre à jour la question dans le chapitre "${subtopic}".`,
+    firestore.getDoc(chapterRef),
+    `Impossible de mettre à jour la question dans le chapitre "${chapter}".`,
   );
 
   if (!docSnap.exists()) {
     console.warn(
-      `Le chapitre "${subtopic}" n'existe pas, impossible de mettre à jour la question.`,
+      `Le chapitre "${chapter}" n'existe pas, impossible de mettre à jour la question.`,
     );
     return;
   }
 
-  const currentSubtopicData = docSnap.data();
-  const updatedQuestions = currentSubtopicData.questions.map((q) =>
+  const currentChapterData = docSnap.data();
+  const updatedQuestions = currentChapterData.questions.map((q) =>
     q.label === (originalLabel ?? convertedQuestion.label)
       ? convertedQuestion
       : q,
   );
 
-  await firestore.updateDoc(subtopicRef, {
+  await firestore.updateDoc(chapterRef, {
     questions: updatedQuestions,
   });
 
-  await saveDataLocally(topic, subtopic, { questions: updatedQuestions });
-  await updateTimestamps(db, topic);
+  await saveDataLocally(course, chapter, { questions: updatedQuestions });
+  await updateTimestamps(db, course);
   data.value = await getAllQuestions(db, true);
 
-  toast(`Question mise à jour dans le chapitre "${subtopic}"`);
-  console.log(`Question mise à jour dans le chapitre "${subtopic}"`);
+  toast(`Question mise à jour dans le chapitre "${chapter}"`);
+  console.log(`Question mise à jour dans le chapitre "${chapter}"`);
 }
 
-export async function addQuestionsToSubtopic(
+export async function addQuestionsToChapter(
   db: firestore.Firestore,
-  topic: Topic,
-  subtopic: Subtopic<Topic>,
+  course: Course,
+  chapter: Chapter<Course>,
   questions: QuestionEdit | QuestionEdit[],
   data: Ref<Partial<Data>>,
 ) {
@@ -180,148 +180,148 @@ export async function addQuestionsToSubtopic(
 
   const convertedQuestions = await convertQuestions(questionsToAdd);
 
-  const subtopicRef = firestore
-    .doc(db, topic, subtopic)
-    .withConverter(subtopicDataConverter);
+  const chapterRef = firestore
+    .doc(db, course, chapter)
+    .withConverter(chapterDataConverter);
 
   const docSnap = await tryAsync(
-    firestore.getDoc(subtopicRef),
-    `Impossible d'ajouter de question au chapitre "${subtopic}".`,
+    firestore.getDoc(chapterRef),
+    `Impossible d'ajouter de question au chapitre "${chapter}".`,
   );
 
-  let currentSubtopicData: SubtopicData | null = null;
+  let currentChapterData: ChapterData | null = null;
 
   if (!docSnap.exists()) {
-    const initialData: SubtopicData = {
+    const initialData: ChapterData = {
       questions: convertedQuestions,
     };
-    await firestore.setDoc(subtopicRef, initialData);
+    await firestore.setDoc(chapterRef, initialData);
 
-    currentSubtopicData = initialData;
+    currentChapterData = initialData;
   } else {
-    await firestore.updateDoc(subtopicRef, {
+    await firestore.updateDoc(chapterRef, {
       questions: firestore.arrayUnion(...questionsToAdd),
     });
 
-    const updatedDocSnap = await firestore.getDoc(subtopicRef);
+    const updatedDocSnap = await firestore.getDoc(chapterRef);
     if (updatedDocSnap.exists()) {
-      currentSubtopicData = updatedDocSnap.data();
+      currentChapterData = updatedDocSnap.data();
     } else {
       throw new Error(
-        `Erreur : Le document "${subtopicRef.path}" a disparu après sa mise-à-jour.`,
+        `Erreur : Le document "${chapterRef.path}" a disparu après sa mise-à-jour.`,
       );
     }
   }
 
-  await saveDataLocally(topic, subtopic, currentSubtopicData);
-  await updateTimestamps(db, topic);
+  await saveDataLocally(course, chapter, currentChapterData);
+  await updateTimestamps(db, course);
   data.value = await getAllQuestions(db, true);
 
   toast(
-    `${handlePlural("Question", questionsToAdd.length)} ${handlePlural("ajoutée", questionsToAdd.length)} au chapitre "${subtopic}"`,
+    `${handlePlural("Question", questionsToAdd.length)} ${handlePlural("ajoutée", questionsToAdd.length)} au chapitre "${chapter}"`,
   );
-  console.log(`Question(s) ajoutée(s) au chapitre "${subtopic}"`);
+  console.log(`Question(s) ajoutée(s) au chapitre "${chapter}"`);
 }
 
-export async function removeQuestionsFromSubtopic(
+export async function removeQuestionsFromChapter(
   db: firestore.Firestore,
-  topic: Topic,
-  subtopic: Subtopic<Topic>,
+  course: Course,
+  chapter: Chapter<Course>,
   questions: Question | Question[],
   data: Ref<Partial<Data>>,
 ) {
   const questionsToRemove = Array.isArray(questions) ? questions : [questions];
 
-  const subtopicRef = firestore
-    .doc(db, topic, subtopic)
-    .withConverter(subtopicDataConverter);
+  const chapterRef = firestore
+    .doc(db, course, chapter)
+    .withConverter(chapterDataConverter);
 
   const docSnap = await tryAsync(
-    firestore.getDoc(subtopicRef),
-    `Impossible de supprimer la question du chapitre "${subtopic}".`,
+    firestore.getDoc(chapterRef),
+    `Impossible de supprimer la question du chapitre "${chapter}".`,
   );
 
   if (!docSnap.exists()) {
     console.warn(
-      `Le chapitre "${subtopic}" n'existe pas, aucune question à supprimer.`,
+      `Le chapitre "${chapter}" n'existe pas, aucune question à supprimer.`,
     );
     return;
   }
 
-  await firestore.updateDoc(subtopicRef, {
+  await firestore.updateDoc(chapterRef, {
     questions: firestore.arrayRemove(...questionsToRemove),
   });
 
-  const updatedDocSnap = await firestore.getDoc(subtopicRef);
-  let currentSubtopicData: SubtopicData | null = null;
+  const updatedDocSnap = await firestore.getDoc(chapterRef);
+  let currentChapterData: ChapterData | null = null;
 
   if (updatedDocSnap.exists()) {
-    currentSubtopicData = updatedDocSnap.data();
+    currentChapterData = updatedDocSnap.data();
   } else {
     throw new Error(
-      `Erreur : Le document "${subtopicRef.path}" a disparu après sa mise-à-jour.`,
+      `Erreur : Le document "${chapterRef.path}" a disparu après sa mise-à-jour.`,
     );
   }
 
-  await saveDataLocally(topic, subtopic, currentSubtopicData);
-  await updateTimestamps(db, topic);
+  await saveDataLocally(course, chapter, currentChapterData);
+  await updateTimestamps(db, course);
   data.value = await getAllQuestions(db, true);
 
   toast(
     `${handlePlural("Question", questionsToRemove.length)} ${handlePlural(
       "supprimée",
       questionsToRemove.length,
-    )} du chapitre "${subtopic}"`,
+    )} du chapitre "${chapter}"`,
   );
-  console.log(`Question(s) supprimée(s) du chapitre "${subtopic}"`);
+  console.log(`Question(s) supprimée(s) du chapitre "${chapter}"`);
 }
 
-async function isDataOutOfDate(db: firestore.Firestore, topic: Topic) {
+async function isDataOutOfDate(db: firestore.Firestore, course: Course) {
   const timestampsStr = localStorage.getItem("timestamps");
   const timestamps = timestampsStr ? JSON.parse(timestampsStr) : {};
-  const lastLocalUpdate = timestamps[topic];
+  const lastLocalUpdate = timestamps[course];
 
   if (!lastLocalUpdate) {
     return true;
   }
 
-  const topicMetaRef = firestore
-    .doc(db, topic, "metadata")
+  const courseMetaRef = firestore
+    .doc(db, course, "metadata")
     .withConverter(MetadataConverter);
-  const lastRemoteUpdate = await firestore.getDoc(topicMetaRef);
+  const lastRemoteUpdate = await firestore.getDoc(courseMetaRef);
 
   const remoteTimestamp = lastRemoteUpdate.data()?.updatedAt || 0;
 
   return remoteTimestamp > lastLocalUpdate;
 }
 
-async function updateTimestamps(db: firestore.Firestore, topic: Topic) {
-  const topicMetaRef = firestore.doc(db, topic, "metadata");
+async function updateTimestamps(db: firestore.Firestore, course: Course) {
+  const courseMetaRef = firestore.doc(db, course, "metadata");
   const now = Date.now();
 
-  await firestore.setDoc(topicMetaRef, { updatedAt: now }, { merge: true });
+  await firestore.setDoc(courseMetaRef, { updatedAt: now }, { merge: true });
 
   const timestampsStr = localStorage.getItem("timestamps");
   const timestamps = timestampsStr ? JSON.parse(timestampsStr) : {};
-  timestamps[topic] = now;
+  timestamps[course] = now;
   localStorage.setItem("timestamps", JSON.stringify(timestamps));
 }
 
 async function saveDataLocally(
-  topic: Topic,
-  subtopic: Subtopic<Topic>,
-  data: SubtopicData | null,
+  course: Course,
+  chapter: Chapter<Course>,
+  data: ChapterData | null,
 ) {
-  const topicDataStr = localStorage.getItem(topic);
-  const topicData = topicDataStr ? JSON.parse(topicDataStr) : {};
+  const courseDataStr = localStorage.getItem(course);
+  const courseData = courseDataStr ? JSON.parse(courseDataStr) : {};
 
   if (!data) {
-    delete topicData[subtopic];
+    delete courseData[chapter];
   } else {
-    topicData[subtopic] = data.questions;
+    courseData[chapter] = data.questions;
   }
 
-  localStorage.setItem(topic, JSON.stringify(topicData));
+  localStorage.setItem(course, JSON.stringify(courseData));
 }
 
 async function convertQuestions(questions: QuestionEdit): Promise<Question>;

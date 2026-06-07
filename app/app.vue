@@ -5,10 +5,10 @@
   const error = ref<string | null>(null);
   const db = ref<Firestore | null>(null);
 
-  const allTopicsWithData = ref<Partial<Data>>({});
+  const allCoursesWithData = ref<Partial<Data>>({});
 
   provide("db", db);
-  provide("data", allTopicsWithData);
+  provide("data", allCoursesWithData);
 
   onBeforeMount(async () => {
     await useTheme.init();
@@ -30,7 +30,7 @@
       ignoreUndefinedProperties: true,
     });
 
-    allTopicsWithData.value = await getAllQuestions(db.value);
+    allCoursesWithData.value = await getAllQuestions(db.value);
   });
 
   onErrorCaptured((err) => {

@@ -1,7 +1,7 @@
-import type { Topic } from "~/types";
+import type { Course } from "~/types";
 
-export const useTopicData = (topic: Topic, data: Partial<Data>) => {
-  const decoded = decodeURI(topic);
+export const useCourseData = (course: Course, data: Partial<Data>) => {
+  const decoded = decodeURI(course);
 
   if (!(decoded in data)) {
     console.warn({
@@ -14,5 +14,5 @@ export const useTopicData = (topic: Topic, data: Partial<Data>) => {
     );
   }
 
-  return data[decoded as Topic];
+  return data[decoded as Course];
 };

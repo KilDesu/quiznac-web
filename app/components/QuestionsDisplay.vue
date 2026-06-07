@@ -1,6 +1,6 @@
 <script lang="ts" setup>
   import type { Question } from "~/types";
-  import type { QuestionData } from "~/pages/review/[topic].vue";
+  import type { QuestionData } from "~/pages/review/[course].vue";
 
   const { questions } = defineProps<{ questions: QuestionData[] }>();
 
@@ -253,7 +253,7 @@
         >
           <span class="text-subtitle2 text-on-surface-variant">
             Question {{ viewIndex + 1 }} / {{ questions.length }} -
-            {{ currentQuestionData?.subtopic || "Pas de question" }}
+            {{ currentQuestionData?.chapter || "Pas de question" }}
           </span>
           <span
             v-if="isViewReadonly && validated[viewIndex]"
