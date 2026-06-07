@@ -4,7 +4,7 @@
 
   const data = useData();
 
-  const topics = computed(() => Object.keys(data.value));
+  const courses = computed(() => Object.keys(data.value));
 </script>
 
 <template>
@@ -34,14 +34,14 @@
       <QSeparator />
 
       <QItem
-        v-for="topic in topics"
-        :key="topic"
-        :to="`/review/${encodeURI(topic)}`"
+        v-for="course in courses"
+        :key="course"
+        :to="`/review/${encodeURI(course)}`"
       >
         <QItemSection avatar>
           <AppIcon name="chevron_right" />
         </QItemSection>
-        <QItemSection> {{ topic }} </QItemSection>
+        <QItemSection> {{ course }} </QItemSection>
       </QItem>
     </QList>
   </QDrawer>

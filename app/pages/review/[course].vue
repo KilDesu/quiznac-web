@@ -2,54 +2,54 @@
   import fuz from "fuzzysort";
 
   import type { QSelectProps } from "quasar";
-  import type { Subtopic, Topic, Question } from "~/types";
+  import type { Chapter, Course, Question } from "~/types";
 
   definePageMeta({
-    middleware: "topic-validation",
+    middleware: "course-validation",
   });
 
   interface RevisionOptions {
     limitQuestions: boolean;
-    subtopics: Subtopic<Topic>[];
+    chapters: Chapter<Course>[];
     questionsCount: number;
     splitEvenly: boolean;
   }
 
   export interface QuestionData {
     question: Question;
-    subtopic: Subtopic<Topic>;
+    chapter: Chapter<Course>;
   }
 
   const route = useRoute();
   const data = useData();
 
   const options = ref<RevisionOptions>({
-    subtopics: [],
+    chapters: [],
     limitQuestions: true,
     questionsCount: 70,
     splitEvenly: true,
   });
-  const subtopicsOptions = ref<Subtopic<Topic>[]>([]);
+  const chaptersOptions = ref<Chapter<Course>[]>([]);
   const questions = ref<QuestionData[]>([]);
   const readyToRevise = ref(false);
 
-  const topic = computed(() => getTopicParam(route.params));
-  const topicData = computed(() => {
+  const course = computed(() => getCourseParam(route.params));
+  const courseData = computed(() => {
     if (!Object.keys(data.value).length) {
       return;
     }
 
-    return useTopicData(topic.value, data.value);
+    return useCourseData(course.value, data.value);
   });
-  const allSubtopics = computed(() =>
-    (Object.keys(topicData.value || {}) as Subtopic<Topic>[])
-      .filter((subtopic) => topicData.value![subtopic]?.length)
+  const allChapters = computed(() =>
+    (Object.keys(courseData.value || {}) as Chapter<Course>[])
+      .filter((chapter) => courseData.value![chapter]?.length)
       .toSorted((a, b) => a.localeCompare(b)),
   );
 
-  watch(topicData, () => {
+  watch(courseData, () => {
     options.value = {
-      subtopics: [],
+      chapters: [],
       limitQuestions: true,
       questionsCount: 70,
       splitEvenly: true,
@@ -57,9 +57,9 @@
   });
 
   watch(
-    allSubtopics,
+    allChapters,
     (newVal) => {
-      subtopicsOptions.value = newVal;
+      chaptersOptions.value = newVal;
     },
     { immediate: true },
   );
@@ -67,31 +67,29 @@
   watch(
     options,
     (opts) => {
-      if (!topicData.value) {
+      if (!courseData.value) {
         return;
       }
 
       const result: QuestionData[] = [];
-      const selectedSubtopics = opts.subtopics.length
-        ? opts.subtopics.filter(
-            (subtopic) => topicData.value![subtopic]?.length,
-          )
-        : allSubtopics.value;
+      const selectedChapters = opts.chapters.length
+        ? opts.chapters.filter((chapter) => courseData.value![chapter]?.length)
+        : allChapters.value;
 
       if (!opts.limitQuestions) {
-        for (const subtopic of selectedSubtopics) {
-          const questionsForSubtopic = topicData.value[subtopic];
+        for (const chapter of selectedChapters) {
+          const questionsForChapter = courseData.value[chapter];
 
-          if (!questionsForSubtopic) {
+          if (!questionsForChapter) {
             continue;
           }
 
-          result.push(...withSubtopic(questionsForSubtopic, subtopic));
+          result.push(...withChapter(questionsForChapter, chapter));
         }
 
         questions.value = shuffle(
           result.map((data) => ({
-            subtopic: data.subtopic,
+            chapter: data.chapter,
             question: {
               ...data.question,
               answers: shuffle(data.question.answers),
@@ -102,10 +100,10 @@
       }
 
       if (opts.splitEvenly) {
-        const availablePools = selectedSubtopics
-          .map((subtopic) => ({
-            subtopic,
-            questions: shuffle(topicData.value![subtopic] || []),
+        const availablePools = selectedChapters
+          .map((chapter) => ({
+            chapter,
+            questions: shuffle(courseData.value![chapter] || []),
           }))
           .filter((pool) => pool.questions.length);
 
@@ -125,7 +123,7 @@
 
           const toTake = Math.min(fairShare, pool.questions.length);
           result.push(
-            ...withSubtopic(pool.questions.slice(0, toTake), pool.subtopic),
+            ...withChapter(pool.questions.slice(0, toTake), pool.chapter),
           );
           needed -= toTake;
 
@@ -133,10 +131,10 @@
         }
       } else {
         const allAvailable: QuestionData[] = [];
-        for (const subtopic of selectedSubtopics) {
-          const questionsForSubtopic = topicData.value[subtopic];
-          if (questionsForSubtopic) {
-            allAvailable.push(...withSubtopic(questionsForSubtopic, subtopic));
+        for (const chapter of selectedChapters) {
+          const questionsForChapter = courseData.value[chapter];
+          if (questionsForChapter) {
+            allAvailable.push(...withChapter(questionsForChapter, chapter));
           }
         }
         result.push(...shuffle(allAvailable).slice(0, opts.questionsCount));
@@ -152,18 +150,18 @@
   const filterFn: QSelectProps["onFilter"] = (input, update) => {
     if (!input) {
       return update(() => {
-        subtopicsOptions.value = allSubtopics.value;
+        chaptersOptions.value = allChapters.value;
       });
     }
 
     return update(() => {
-      const result = fuz.go(input, allSubtopics.value, {
+      const result = fuz.go(input, allChapters.value, {
         threshold: 0.5,
       });
 
-      subtopicsOptions.value = result.map(
+      chaptersOptions.value = result.map(
         (res) => res.target,
-      ) as Subtopic<Topic>[];
+      ) as Chapter<Course>[];
     });
   };
 
@@ -174,16 +172,16 @@
 
     e.preventDefault();
     e.stopPropagation();
-    options.value.subtopics.pop();
+    options.value.chapters.pop();
   }
 
-  function withSubtopic(
+  function withChapter(
     questions: Question[],
-    subtopic: Subtopic<Topic>,
+    chapter: Chapter<Course>,
   ): QuestionData[] {
     return questions.map((question) => ({
       question,
-      subtopic,
+      chapter,
     }));
   }
 </script>
@@ -191,7 +189,9 @@
 <template>
   <Transition>
     <template v-if="Object.keys(data).length">
-      <QPage v-if="topicData && Object.values(topicData).some((q) => q.length)">
+      <QPage
+        v-if="courseData && Object.values(courseData).some((q) => q.length)"
+      >
         <QCard v-if="!readyToRevise" class="surface-container-low">
           <QCardSection class="text-h6 q-pb-none">
             Avant de commencer à réviser
@@ -199,8 +199,8 @@
 
           <QCardSection>
             <AppSelect
-              v-model="options.subtopics"
-              :options="subtopicsOptions"
+              v-model="options.chapters"
+              :options="chaptersOptions"
               label="Chapitres à réviser"
               hint="Si aucun chapitre n'est sélectionné, tous les chapitres seront utilisés"
               input-debounce="500"

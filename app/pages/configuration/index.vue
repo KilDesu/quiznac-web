@@ -1,33 +1,33 @@
 <script lang="ts" setup>
   import type { Firestore } from "firebase/firestore";
-  import type { Subtopic, Topic } from "~/types";
+  import type { Chapter, Course } from "~/types";
 
   interface ToDelete {
-    topic: Topic;
-    subtopic: Subtopic<Topic>;
+    course: Course;
+    chapter: Chapter<Course>;
   }
 
   const db = inject<Ref<Firestore | null>>("db");
   const data = useData();
 
-  const topicToAddSubtopicTo = ref<Topic | null>(null);
-  const newSubtopicName = ref<Subtopic<Topic> | null>(null);
+  const courseToAddChapterTo = ref<Course | null>(null);
+  const newChapterName = ref<Chapter<Course> | null>(null);
   const toDelete = ref<ToDelete | null>(null);
 
-  async function addNewSubtopic() {
-    if (!db?.value || !newSubtopicName.value || !topicToAddSubtopicTo.value) {
+  async function addNewChapter() {
+    if (!db?.value || !newChapterName.value || !courseToAddChapterTo.value) {
       return;
     }
 
-    await addSubtopic(
+    await addChapter(
       db.value,
-      topicToAddSubtopicTo.value,
-      newSubtopicName.value,
+      courseToAddChapterTo.value,
+      newChapterName.value,
       data,
     );
 
-    topicToAddSubtopicTo.value = null;
-    newSubtopicName.value = null;
+    courseToAddChapterTo.value = null;
+    newChapterName.value = null;
   }
 
   function sortObject<T extends Record<string, unknown>>(obj: T) {
@@ -37,12 +37,12 @@
     ][];
   }
 
-  async function deleteSubtopic({ topic, subtopic }: ToDelete) {
+  async function deleteChapter({ course, chapter }: ToDelete) {
     if (!db?.value) {
       return;
     }
 
-    await removeSubtopic(db.value, topic, subtopic, data);
+    await removeChapter(db.value, course, chapter, data);
 
     toDelete.value = null;
   }
@@ -54,8 +54,8 @@
 
     <QList class="surface-container-low">
       <QExpansionItem
-        v-for="[topic, topicData] in sortObject(data)"
-        :key="topic"
+        v-for="[course, courseData] in sortObject(data)"
+        :key="course"
       >
         <template #header>
           <QItemSection avatar>
@@ -64,11 +64,11 @@
 
           <QItemSection>
             <QItemLabel class="text-h6">
-              {{ topic }}
+              {{ course }}
             </QItemLabel>
             <QItemLabel class="text-body1 text-weight-light whitespace-nowrap">
-              {{ Object.keys(topicData).length }}
-              {{ handlePlural("chapitre", Object.keys(topicData).length) }}
+              {{ Object.keys(courseData).length }}
+              {{ handlePlural("chapitre", Object.keys(courseData).length) }}
             </QItemLabel>
           </QItemSection>
 
@@ -79,21 +79,21 @@
               :size="useScreenMd('md', 'sm')"
               outline
               color="tertiary"
-              @click.stop="topicToAddSubtopicTo = topic as Topic"
+              @click.stop="courseToAddChapterTo = course as Course"
             />
           </QItemSection>
         </template>
 
         <QList separator>
           <QItem
-            v-for="[subtopic, questions] in sortObject(topicData)"
-            :key="subtopic"
+            v-for="[chapter, questions] in sortObject(courseData)"
+            :key="chapter"
             :inset-level="1"
             style="border-radius: inherit"
           >
             <QItemSection class="text-body1 text-weight-medium">
               <QItemLabel>
-                {{ subtopic }}
+                {{ chapter }}
               </QItemLabel>
               <QItemLabel
                 class="text-caption text-weight-light whitespace-nowrap"
@@ -105,7 +105,7 @@
 
             <QItemSection side>
               <AppBtn
-                :to="`configuration/${topic}/${subtopic}`"
+                :to="`configuration/${course}/${chapter}`"
                 icon="edit"
                 flat
                 @click.stop
@@ -116,7 +116,7 @@
                 icon="delete"
                 class="error-container"
                 @click.stop="
-                  toDelete = { topic, subtopic: subtopic as Subtopic<Topic> }
+                  toDelete = { course, chapter: chapter as Chapter<Course> }
                 "
               />
             </QItemSection>
@@ -125,15 +125,15 @@
       </QExpansionItem>
     </QList>
 
-    <QDialog :model-value="!!topicToAddSubtopicTo" persistent>
+    <QDialog :model-value="!!courseToAddChapterTo" persistent>
       <QCard class="surface-container-low">
         <QCardSection class="text-h6">
-          Ajouter un chapitre pour {{ topicToAddSubtopicTo }}
+          Ajouter un chapitre pour {{ courseToAddChapterTo }}
         </QCardSection>
 
         <QCardSection>
           <AppInput
-            v-model="newSubtopicName"
+            v-model="newChapterName"
             label="Nom du chapitre à ajouter"
             required
             autofocus
@@ -141,8 +141,8 @@
         </QCardSection>
 
         <QCardActions align="right">
-          <AppBtn label="Annuler" flat @click="topicToAddSubtopicTo = null" />
-          <AppBtn label="Ajouter" class="primary" @click="addNewSubtopic" />
+          <AppBtn label="Annuler" flat @click="courseToAddChapterTo = null" />
+          <AppBtn label="Ajouter" class="primary" @click="addNewChapter" />
         </QCardActions>
       </QCard>
     </QDialog>
@@ -151,9 +151,9 @@
       v-slot="props"
       v-model="toDelete"
       title="ce chapitre"
-      @delete="deleteSubtopic"
+      @delete="deleteChapter"
     >
-      le chapitre "{{ props.subtopic }}" du cours {{ props.topic }}
+      le chapitre "{{ props.chapter }}" du cours {{ props.course }}
     </DeleteDialog>
   </div>
 </template>

@@ -1,4 +1,4 @@
-import type { Topic } from "./subtopic";
+import type { Course } from "./chapter";
 
 export type ThemePreference = "light" | "dark" | "system";
 
@@ -43,11 +43,11 @@ export type QuestionEdit = Omit<Question, "image"> & {
   image: string | File | null;
 };
 
-export * from "./subtopic";
+export * from "./chapter";
 
 declare global {
   export type UnionFromArray<T extends Readonly<Array<unknown>>> = T[number];
 
-  type TopicData = Record<string, Question[]>;
-  type Data = Record<Topic, TopicData>;
+  type CourseData = Record<string, Question[]>;
+  type Data = Record<Course, CourseData>;
 }

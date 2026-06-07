@@ -7,7 +7,7 @@
   import type { Answer, Question, QuestionEdit } from "~/types";
 
   definePageMeta({
-    middleware: "subtopic-validation",
+    middleware: "chapter-validation",
   });
 
   hljs.registerLanguage("typescript", typescript);
@@ -67,15 +67,15 @@ type Question = {
   const params = computed(() => getParams(route.params));
 
   const questions = computed(() => {
-    const { topic, subtopic } = params.value;
+    const { course, chapter } = params.value;
 
-    const subtopicData = data.value?.[topic]?.[subtopic];
+    const chapterData = data.value?.[course]?.[chapter];
 
-    if (!subtopicData) {
+    if (!chapterData) {
       return [];
     }
 
-    return subtopicData.toSorted((a, b) => a.label.localeCompare(b.label));
+    return chapterData.toSorted((a, b) => a.label.localeCompare(b.label));
   });
 
   function getAnswerCountLabel(answers: Answer[]) {
@@ -95,7 +95,7 @@ type Question = {
       return;
     }
 
-    const { topic, subtopic } = params.value;
+    const { course, chapter } = params.value;
 
     const fileReader = new FileReader();
     fileReader.onload = async (e) => {
@@ -107,10 +107,10 @@ type Question = {
         return;
       }
 
-      await addQuestionsToSubtopic(
+      await addQuestionsToChapter(
         db.value!,
-        topic,
-        subtopic,
+        course,
+        chapter,
         questionsToImport,
         data,
       );
@@ -125,15 +125,9 @@ type Question = {
       return;
     }
 
-    const { topic, subtopic } = params.value;
+    const { course, chapter } = params.value;
 
-    await removeQuestionsFromSubtopic(
-      db.value,
-      topic,
-      subtopic,
-      question,
-      data,
-    );
+    await removeQuestionsFromChapter(db.value, course, chapter, question, data);
 
     questionToDelete.value = null;
   }
@@ -146,19 +140,19 @@ type Question = {
       return;
     }
 
-    const { topic, subtopic } = params.value;
+    const { course, chapter } = params.value;
 
-    if (typeof subtopic !== "string") {
+    if (typeof chapter !== "string") {
       return;
     }
 
     if (questionToEdit.value === "new") {
-      await addQuestionsToSubtopic(db.value, topic, subtopic, question, data);
+      await addQuestionsToChapter(db.value, course, chapter, question, data);
     } else {
-      await updateQuestionInSubtopic(
+      await updateQuestionInChapter(
         db.value,
-        topic,
-        subtopic,
+        course,
+        chapter,
         question,
         data,
         originalLabel,
@@ -196,7 +190,7 @@ type Question = {
 <template>
   <div>
     <div :class="[useScreenMd('text-h3', 'text-h4'), 'q-mb-lg']">
-      Chapitre "{{ route.params.subtopic }}"
+      Chapitre "{{ route.params.chapter }}"
     </div>
 
     <div class="flex q-mb-sm" :style="{ gap: useScreenMd('1rem') }">

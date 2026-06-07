@@ -5,26 +5,26 @@ import type {
   SnapshotOptions,
   WithFieldValue,
 } from "firebase/firestore";
-import type { SubtopicData } from "~/types";
+import type { ChapterData } from "~/types";
 
-export const subtopicDataConverter: FirestoreDataConverter<SubtopicData> = {
-  toFirestore(subtopicData: WithFieldValue<SubtopicData>): DocumentData {
+export const chapterDataConverter: FirestoreDataConverter<ChapterData> = {
+  toFirestore(chapterData: WithFieldValue<ChapterData>): DocumentData {
     // When writing to Firestore, we can return the data as is since it
     // already matches the desired structure.
     // WithFieldValue allows for FieldValue types like serverTimestamp()
-    return subtopicData;
+    return chapterData;
   },
   fromFirestore(
     snapshot: QueryDocumentSnapshot,
     options: SnapshotOptions,
-  ): SubtopicData {
+  ): ChapterData {
     const data = snapshot.data(options);
     // When reading from Firestore, we assert the data structure to our interface.
-    // The converter ensures that `snapshot.data()` will return `SubtopicData`
-    // when using `.withConverter(subtopicDataConverter)`.
+    // The converter ensures that `snapshot.data()` will return `ChapterData`
+    // when using `.withConverter(chapterDataConverter)`.
     return {
       questions: data.questions || [],
-    } as SubtopicData; // Cast here is safe due to the converter contract
+    } as ChapterData; // Cast here is safe due to the converter contract
   },
 };
 
