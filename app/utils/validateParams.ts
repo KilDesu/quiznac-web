@@ -1,6 +1,5 @@
 import type { RouteParams } from "vue-router";
 import {
-  Chapters,
   Courses,
   type QuiznacRouteParams,
   type Chapter,
@@ -21,18 +20,14 @@ export function validateCourse(params: RouteParams) {
   return course as Course;
 }
 
-export function validateChapter(params: RouteParams, course: Course) {
+export function validateChapter(params: RouteParams) {
   const { chapter } = params;
 
-  if (
-    !chapter ||
-    typeof chapter !== "string" ||
-    !Chapters[course].includes(chapter as Chapter<Course>)
-  ) {
+  if (!chapter || typeof chapter !== "string") {
     return null;
   }
 
-  return chapter as Chapter<Course>;
+  return chapter;
 }
 
 export function getCourseParam(params: RouteParams) {
@@ -44,7 +39,7 @@ export function getCourseParam(params: RouteParams) {
 export function getChapterParam(params: RouteParams) {
   const { chapter } = params;
 
-  return chapter as Chapter<Course>;
+  return chapter as Chapter;
 }
 
 export function getParams(params: RouteParams): QuiznacRouteParams {

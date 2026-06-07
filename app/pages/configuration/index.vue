@@ -4,14 +4,14 @@
 
   interface ToDelete {
     course: Course;
-    chapter: Chapter<Course>;
+    chapter: Chapter;
   }
 
   const db = inject<Ref<Firestore | null>>("db");
   const data = useData();
 
   const courseToAddChapterTo = ref<Course | null>(null);
-  const newChapterName = ref<Chapter<Course> | null>(null);
+  const newChapterName = ref<Chapter | null>(null);
   const toDelete = ref<ToDelete | null>(null);
 
   async function addNewChapter() {
@@ -115,9 +115,7 @@
               <AppBtn
                 icon="delete"
                 class="error-container"
-                @click.stop="
-                  toDelete = { course, chapter: chapter as Chapter<Course> }
-                "
+                @click.stop="toDelete = { course, chapter: chapter as Chapter }"
               />
             </QItemSection>
           </QItem>

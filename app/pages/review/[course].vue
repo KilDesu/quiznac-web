@@ -2,7 +2,7 @@
   import fuz from "fuzzysort";
 
   import type { QSelectProps } from "quasar";
-  import type { Chapter, Course, Question } from "~/types";
+  import type { Chapter, Question } from "~/types";
 
   definePageMeta({
     middleware: "course-validation",
@@ -10,14 +10,14 @@
 
   interface RevisionOptions {
     limitQuestions: boolean;
-    chapters: Chapter<Course>[];
+    chapters: Chapter[];
     questionsCount: number;
     splitEvenly: boolean;
   }
 
   export interface QuestionData {
     question: Question;
-    chapter: Chapter<Course>;
+    chapter: Chapter;
   }
 
   const route = useRoute();
@@ -29,7 +29,7 @@
     questionsCount: 70,
     splitEvenly: true,
   });
-  const chaptersOptions = ref<Chapter<Course>[]>([]);
+  const chaptersOptions = ref<Chapter[]>([]);
   const questions = ref<QuestionData[]>([]);
   const readyToRevise = ref(false);
 
@@ -42,7 +42,7 @@
     return useCourseData(course.value, data.value);
   });
   const allChapters = computed(() =>
-    (Object.keys(courseData.value || {}) as Chapter<Course>[])
+    (Object.keys(courseData.value || {}) as Chapter[])
       .filter((chapter) => courseData.value![chapter]?.length)
       .toSorted((a, b) => a.localeCompare(b)),
   );
@@ -159,9 +159,7 @@
         threshold: 0.5,
       });
 
-      chaptersOptions.value = result.map(
-        (res) => res.target,
-      ) as Chapter<Course>[];
+      chaptersOptions.value = result.map((res) => res.target) as Chapter[];
     });
   };
 
@@ -177,7 +175,7 @@
 
   function withChapter(
     questions: Question[],
-    chapter: Chapter<Course>,
+    chapter: Chapter,
   ): QuestionData[] {
     return questions.map((question) => ({
       question,

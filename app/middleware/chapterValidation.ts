@@ -6,7 +6,7 @@ export default defineNuxtRouteMiddleware((to) => {
     return navigateTo("/");
   }
 
-  const chapter = validateChapter(to.params, course);
+  const chapter = validateChapter(to.params);
 
   if (!chapter) {
     toast(`Le chapitre ${to.params.chapter} est invalide`, "error");
