@@ -1,7 +1,8 @@
 <script lang="ts" setup>
   import type { Question } from "~/types";
+  import type { QuestionData } from "~/pages/review/[topic].vue";
 
-  const { questions } = defineProps<{ questions: Question[] }>();
+  const { questions } = defineProps<{ questions: QuestionData[] }>();
 
   const emit = defineEmits<{
     finished: [payload: { answered: number; correct: number; total: number }];
@@ -17,7 +18,9 @@
   const draftCheckboxIndices = ref<number[][]>([]);
   const validateBlockedMessage = ref("");
 
-  const currentQuestion = computed(() => questions[viewIndex.value] ?? null);
+  const currentQuestionData = computed(
+    () => questions[viewIndex.value] ?? null,
+  );
   const resultsSummary = computed(() => answeredStats());
   const canGoPrev = computed(
     () => phase.value === "quiz" && viewIndex.value > 0,
@@ -48,7 +51,7 @@
     return !canEditSelection.value;
   });
   const radioOptions = computed(() => {
-    const question = currentQuestion.value;
+    const question = currentQuestionData.value?.question;
     if (!question) {
       return [];
     }
@@ -131,7 +134,7 @@
     if (i >= questions.length || validated.value[i]) {
       return;
     }
-    const question = questions[i];
+    const question = questions[i]?.question;
     if (!question) {
       return;
     }
@@ -244,9 +247,13 @@
       style="border-radius: 0.75rem; border: 1px solid var(--outline)"
     >
       <QCardSection class="row items-center no-wrap q-py-sm">
-        <div class="column" style="min-width: 0">
+        <div
+          class="column"
+          style="min-width: 0; overflow: hidden; white-space: nowrap"
+        >
           <span class="text-subtitle2 text-on-surface-variant">
-            Question {{ viewIndex + 1 }} / {{ questions.length }}
+            Question {{ viewIndex + 1 }} / {{ questions.length }} -
+            {{ currentQuestionData?.subtopic || "Pas de question" }}
           </span>
           <span
             v-if="isViewReadonly && validated[viewIndex]"
@@ -256,7 +263,7 @@
           </span>
         </div>
         <QSpace />
-        <div class="row q-gutter-xs shrink-0">
+        <div class="row q-gutter-xs">
           <AppBtn
             flat
             dense
@@ -280,18 +287,18 @@
 
       <QSeparator style="background: var(--outline)" />
 
-      <QCardSection v-if="currentQuestion" class="column q-gutter-md">
+      <QCardSection v-if="currentQuestionData" class="column q-gutter-md">
         <div class="text-h6" style="word-break: break-word">
-          {{ currentQuestion.label }}
+          {{ currentQuestionData.question.label }}
         </div>
 
         <div
-          v-if="currentQuestion.image"
+          v-if="currentQuestionData.question.image"
           class="flex justify-center q-pr-md"
           style="width: 100%; min-width: 0"
         >
           <img
-            :src="currentQuestion.image"
+            :src="currentQuestionData.question.image"
             alt=""
             class="rounded-borders block"
             style="
@@ -313,14 +320,14 @@
         </QBanner>
 
         <div
-          v-if="isMultipleCorrect(currentQuestion)"
+          v-if="isMultipleCorrect(currentQuestionData.question)"
           class="column q-gutter-sm"
         >
           <span class="text-subtitle2 text-on-surface-variant">
             Plusieurs réponses correctes possibles
           </span>
           <div
-            v-for="(answer, idx) in currentQuestion.answers"
+            v-for="(answer, idx) in currentQuestionData.question.answers"
             :key="idx"
             class="row items-center no-wrap q-gutter-sm"
           >
@@ -369,7 +376,9 @@
             </div>
             <template v-if="!wasCorrect[viewIndex]">
               <div
-                v-for="(correct, index) in [correctIndices(currentQuestion)]"
+                v-for="(correct, index) in [
+                  correctIndices(currentQuestionData.question),
+                ]"
                 :key="index"
                 class="text-body2 q-mb-sm"
               >
@@ -377,12 +386,15 @@
                   {{ handlePlural("Réponse", correct.length) }}
                   {{ handlePlural("attendue", correct.length) }} :
                 </span>
-                {{ answerLabels(currentQuestion, correct) }}
+                {{ answerLabels(currentQuestionData.question, correct) }}
               </div>
             </template>
-            <div v-if="currentQuestion.explanation.trim()" class="text-body2">
+            <div
+              v-if="currentQuestionData.question.explanation.trim()"
+              class="text-body2"
+            >
               <span class="text-weight-medium">Explication : </span>
-              {{ currentQuestion.explanation }}
+              {{ currentQuestionData.question.explanation }}
             </div>
           </QBanner>
         </template>
@@ -476,7 +488,7 @@
               </QItemSection>
               <QItemSection>
                 <div class="text-weight-medium ellipsis-2-lines">
-                  {{ questions[questionIndex]!.label }}
+                  {{ questions[questionIndex]!.question.label }}
                 </div>
                 <div class="text-caption text-on-surface-variant">
                   Question {{ questionIndex + 1 }}
@@ -489,9 +501,9 @@
                   <span class="text-weight-medium">Votre réponse : </span>
                   {{
                     answerLabels(
-                      questions[questionIndex]!,
+                      questions[questionIndex]!.question,
                       userPickedIndices(
-                        questions[questionIndex]!,
+                        questions[questionIndex]!.question,
                         questionIndex,
                       ),
                     ) || "—"
@@ -499,7 +511,7 @@
                 </div>
                 <div
                   v-for="(correct, index) in [
-                    correctIndices(questions[questionIndex]!),
+                    correctIndices(questions[questionIndex]!.question),
                   ]"
                   :key="index"
                 >
@@ -507,11 +519,15 @@
                     {{ handlePlural("Réponse", correct.length) }}
                     {{ handlePlural("correcte", correct.length) }} :
                   </span>
-                  {{ answerLabels(questions[questionIndex]!, correct) }}
+                  {{
+                    answerLabels(questions[questionIndex]!.question, correct)
+                  }}
                 </div>
-                <div v-if="questions[questionIndex]!.explanation.trim()">
+                <div
+                  v-if="questions[questionIndex]!.question.explanation.trim()"
+                >
                   <span class="text-weight-medium">Explication : </span>
-                  {{ questions[questionIndex]!.explanation }}
+                  {{ questions[questionIndex]!.question.explanation }}
                 </div>
               </QCardSection>
             </QCard>

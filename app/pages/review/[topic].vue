@@ -15,6 +15,11 @@
     splitEvenly: boolean;
   }
 
+  export interface QuestionData {
+    question: Question;
+    subtopic: Subtopic<Topic>;
+  }
+
   const route = useRoute();
   const data = useData();
 
@@ -25,7 +30,7 @@
     splitEvenly: true,
   });
   const subtopicsOptions = ref<Subtopic<Topic>[]>([]);
-  const questions = ref<Question[]>([]);
+  const questions = ref<QuestionData[]>([]);
   const readyToRevise = ref(false);
 
   const topic = computed(() => getTopicParam(route.params));
@@ -66,7 +71,7 @@
         return;
       }
 
-      const result: Question[] = [];
+      const result: QuestionData[] = [];
       const selectedSubtopics = opts.subtopics.length
         ? opts.subtopics.filter(
             (subtopic) => topicData.value![subtopic]?.length,
@@ -81,11 +86,17 @@
             continue;
           }
 
-          result.push(...questionsForSubtopic);
+          result.push(...withSubtopic(questionsForSubtopic, subtopic));
         }
 
         questions.value = shuffle(
-          result.map((q) => ({ ...q, answers: shuffle(q.answers) })),
+          result.map((data) => ({
+            subtopic: data.subtopic,
+            question: {
+              ...data.question,
+              answers: shuffle(data.question.answers),
+            },
+          })),
         );
         return;
       }
@@ -113,24 +124,26 @@
           const fairShare = Math.ceil(needed / remainingPoolsCount);
 
           const toTake = Math.min(fairShare, pool.questions.length);
-          result.push(...pool.questions.slice(0, toTake));
+          result.push(
+            ...withSubtopic(pool.questions.slice(0, toTake), pool.subtopic),
+          );
           needed -= toTake;
 
           if (needed <= 0) break;
         }
       } else {
-        const allAvailable: Question[] = [];
+        const allAvailable: QuestionData[] = [];
         for (const subtopic of selectedSubtopics) {
           const questionsForSubtopic = topicData.value[subtopic];
           if (questionsForSubtopic) {
-            allAvailable.push(...questionsForSubtopic);
+            allAvailable.push(...withSubtopic(questionsForSubtopic, subtopic));
           }
         }
         result.push(...shuffle(allAvailable).slice(0, opts.questionsCount));
       }
 
       questions.value = shuffle(
-        result.map((q) => ({ ...q, answers: shuffle(q.answers) })),
+        result.map((q) => ({ ...q, answers: shuffle(q.question.answers) })),
       );
     },
     { deep: true, immediate: true },
@@ -162,6 +175,16 @@
     e.preventDefault();
     e.stopPropagation();
     options.value.subtopics.pop();
+  }
+
+  function withSubtopic(
+    questions: Question[],
+    subtopic: Subtopic<Topic>,
+  ): QuestionData[] {
+    return questions.map((question) => ({
+      question,
+      subtopic,
+    }));
   }
 </script>
 
