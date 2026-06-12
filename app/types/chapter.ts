@@ -11,10 +11,6 @@ export interface QuiznacRouteParams {
   chapter: Chapter;
 }
 
-export type ChapterDocument = {
-  [K in Chapter]: ChapterData;
-};
-
 export const Courses = [
   "Aéronef",
   "ATLA",

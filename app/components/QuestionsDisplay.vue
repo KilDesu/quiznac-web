@@ -44,12 +44,7 @@
       !validated.value[index]
     );
   });
-  const isViewReadonly = computed(() => {
-    if (phase.value !== "quiz") {
-      return true;
-    }
-    return !canEditSelection.value;
-  });
+
   const radioOptions = computed(() => {
     const question = currentQuestionData.value?.question;
     if (!question) {
@@ -254,12 +249,6 @@
           <span class="text-subtitle2 text-on-surface-variant">
             Question {{ viewIndex + 1 }} / {{ questions.length }} -
             {{ currentQuestionData?.chapter || "Pas de question" }}
-          </span>
-          <span
-            v-if="isViewReadonly && validated[viewIndex]"
-            class="text-caption text-on-surface-variant q-mt-xs"
-          >
-            Réponse verrouillée (révision)
           </span>
         </div>
         <QSpace />
