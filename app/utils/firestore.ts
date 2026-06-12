@@ -197,7 +197,7 @@ export async function addQuestionsToChapter(
     currentChapterData = initialData;
   } else {
     await firestore.updateDoc(chapterRef, {
-      questions: firestore.arrayUnion(...questionsToAdd),
+      questions: firestore.arrayUnion(...convertedQuestions),
     });
 
     const updatedDocSnap = await firestore.getDoc(chapterRef);
@@ -331,9 +331,11 @@ async function convertQuestions(
       return questions as Question;
     }
 
+    const url = await addImageToDb(questions.image);
+
     return {
       ...questions,
-      image: await addImageToDb(questions.image),
+      image: url,
     };
   }
 
