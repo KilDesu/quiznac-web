@@ -127,7 +127,6 @@ export async function updateQuestionInChapter(
   chapter: Chapter,
   question: QuestionEdit,
   data: Ref<Partial<Data>>,
-  originalLabel?: string,
 ) {
   const convertedQuestion = await convertQuestions(question);
 
@@ -149,9 +148,7 @@ export async function updateQuestionInChapter(
 
   const currentChapterData = docSnap.data();
   const updatedQuestions = currentChapterData.questions.map((q) =>
-    q.label === (originalLabel ?? convertedQuestion.label)
-      ? convertedQuestion
-      : q,
+    q.id === convertedQuestion.id ? convertedQuestion : q,
   );
 
   await firestore.updateDoc(chapterRef, {
@@ -327,14 +324,17 @@ async function convertQuestions(
   questions: QuestionEdit | QuestionEdit[],
 ): Promise<Question | Question[]> {
   if (!Array.isArray(questions)) {
+    const id = questions.id ?? crypto.randomUUID();
+
     if (!questions.image) {
-      return questions as Question;
+      return { ...questions, id, image: null } as Question;
     }
 
     const url = await addImageToDb(questions.image);
 
     return {
       ...questions,
+      id,
       image: url,
     };
   }

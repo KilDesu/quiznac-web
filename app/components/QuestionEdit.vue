@@ -2,11 +2,11 @@
   import type { Question, QuestionEdit } from "~/types";
 
   const emit = defineEmits<{
-    save: [question: QuestionEdit, originalLabel?: string];
+    save: [question: QuestionEdit];
     close: [];
   }>();
 
-  const emptyQuestion: Question = {
+  const emptyQuestion: QuestionEdit = {
     label: "",
     image: null,
     answers: [
@@ -18,9 +18,7 @@
 
   const question = defineModel<Question | "new" | null>({ required: true });
 
-  const editedQuestion = ref<QuestionEdit>(
-    cloneQuestion(emptyQuestion) as QuestionEdit,
-  );
+  const editedQuestion = ref<QuestionEdit>(cloneQuestionEdit(emptyQuestion));
   const closedBySave = ref(false);
 
   const labelError = ref("");
@@ -36,7 +34,7 @@
     question,
     (newVal) => {
       if (!newVal) {
-        editedQuestion.value = cloneQuestion(emptyQuestion);
+        editedQuestion.value = cloneQuestionEdit(emptyQuestion);
         imageUrlDraft.value = "";
         localImage.value = null;
         clearFieldErrors();
@@ -44,9 +42,9 @@
       }
 
       if (newVal === "new") {
-        editedQuestion.value = cloneQuestion(emptyQuestion);
+        editedQuestion.value = cloneQuestionEdit(emptyQuestion);
       } else {
-        editedQuestion.value = cloneQuestion(newVal);
+        editedQuestion.value = cloneQuestionEdit(newVal);
       }
 
       imageUrlDraft.value =
@@ -68,13 +66,19 @@
     return u.length ? u : null;
   });
 
-  function cloneQuestion(q: Question): Question {
-    return {
+  function cloneQuestionEdit(q: QuestionEdit): QuestionEdit {
+    const cloned: QuestionEdit = {
       label: q.label,
       image: q.image,
       explanation: q.explanation,
       answers: q.answers.map((a) => ({ ...a })),
     };
+
+    if (q.id) {
+      cloned.id = q.id;
+    }
+
+    return cloned;
   }
 
   function clearFieldErrors() {
@@ -152,15 +156,7 @@
       return;
     }
 
-    if (question.value === "new") {
-      emit("save", editedQuestion.value);
-    } else {
-      const originalLabel =
-        question.value && question.value.label !== editedQuestion.value.label
-          ? question.value.label
-          : undefined;
-      emit("save", editedQuestion.value, originalLabel);
-    }
+    emit("save", editedQuestion.value);
     clearFieldErrors();
   }
 

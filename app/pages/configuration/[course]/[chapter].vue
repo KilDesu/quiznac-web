@@ -132,10 +132,7 @@ type Question = {
     questionToDelete.value = null;
   }
 
-  async function handleQuestionSave(
-    question: QuestionEdit,
-    originalLabel?: string,
-  ) {
+  async function handleQuestionSave(question: QuestionEdit) {
     if (!db?.value || !questionToEdit.value) {
       return;
     }
@@ -155,7 +152,6 @@ type Question = {
         chapter,
         question,
         data,
-        originalLabel,
       );
     }
 
@@ -215,7 +211,7 @@ type Question = {
     </div>
 
     <QList class="surface-container">
-      <QExpansionItem v-for="question in questions" :key="question.label">
+      <QExpansionItem v-for="question in questions" :key="question.id">
         <template #header>
           <QItemSection>
             <QItemLabel>{{ question.label }}</QItemLabel>
