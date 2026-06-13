@@ -22,6 +22,11 @@ export type Answer = {
  */
 export type Question = {
   /**
+   * L'id unique de la question, permettant plusieurs questions avec le même label.
+   * Généré automatiquement avec crypto.randomUUID() lors de la création de la question.
+   */
+  id: string;
+  /**
    * Le texte de la question.
    */
   label: string;
@@ -39,7 +44,8 @@ export type Question = {
   explanation: string;
 };
 
-export type QuestionEdit = Omit<Question, "image"> & {
+export type QuestionEdit = Omit<Question, "id" | "image"> & {
+  id?: string;
   image: string | File | null;
 };
 
