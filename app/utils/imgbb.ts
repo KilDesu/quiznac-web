@@ -38,16 +38,8 @@ export interface ImgbbResponse {
 }
 
 export async function addImageToDb(image: string | File) {
-  if (typeof image === "string") {
-    if (image.startsWith("https://i.ibb.co")) {
-      return image;
-    }
-
-    if (!image.startsWith("http")) {
-      throw new Error(
-        `L'URL de l'image ${image} n'est pas valide (elle doit commencer par "http")`,
-      );
-    }
+  if (typeof image === "string" && image.startsWith("https://i.ibb.co")) {
+    return image;
   }
 
   const apiKey = import.meta.env.VITE_IMGBB_API_KEY;
