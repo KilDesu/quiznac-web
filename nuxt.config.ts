@@ -2,7 +2,7 @@
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   devtools: { enabled: false },
-  modules: ["nuxt-quasar-ui", "@nuxt/eslint"],
+  modules: ["nuxt-quasar-ui", "@nuxt/eslint", "@nuxt/image"],
   css: ["~/css/main.css"],
   ssr: false,
 
@@ -13,6 +13,10 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: "vercel",
+  },
+
+  image: {
+    domains: ["https://i.ibb.co"],
   },
 
   imports: {

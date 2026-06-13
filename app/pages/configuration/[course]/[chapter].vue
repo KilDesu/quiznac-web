@@ -59,6 +59,8 @@ type Question = {
   const route = useRoute();
   const data = useData();
 
+  const loading = ref(false);
+
   const questionToEdit = ref<Question | "new" | null>(null);
   const importDialog = ref(false);
   const importedFile = ref<File | null>(null);
@@ -76,6 +78,10 @@ type Question = {
     }
 
     return chapterData.toSorted((a, b) => a.label.localeCompare(b.label));
+  });
+
+  onErrorCaptured(() => {
+    loading.value = false;
   });
 
   function getAnswerCountLabel(answers: Answer[]) {
@@ -107,6 +113,8 @@ type Question = {
         return;
       }
 
+      const cleanup = showOverlay();
+
       await addQuestionsToChapter(
         db.value!,
         course,
@@ -114,9 +122,12 @@ type Question = {
         questionsToImport,
         data,
       );
+
+      cleanup();
       importDialog.value = false;
       importedFile.value = null;
     };
+
     fileReader.readAsText(importedFile.value);
   }
 
@@ -127,8 +138,11 @@ type Question = {
 
     const { course, chapter } = params.value;
 
+    const cleanup = showOverlay();
+
     await removeQuestionsFromChapter(db.value, course, chapter, question, data);
 
+    cleanup();
     questionToDelete.value = null;
   }
 
@@ -143,17 +157,15 @@ type Question = {
       return;
     }
 
+    const cleanup = showOverlay();
+
     if (questionToEdit.value === "new") {
       await addQuestionsToChapter(db.value, course, chapter, question, data);
     } else {
-      await updateQuestionInChapter(
-        db.value,
-        course,
-        chapter,
-        question,
-        data,
-      );
+      await updateQuestionInChapter(db.value, course, chapter, question, data);
     }
+
+    cleanup();
 
     questionToEdit.value = null;
   }
@@ -181,10 +193,26 @@ type Question = {
 
     return true;
   }
+
+  function showOverlay() {
+    const timer = setTimeout(() => {
+      loading.value = true;
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      loading.value = false;
+    };
+  }
 </script>
 
 <template>
   <div>
+    <div v-if="loading" class="overlay">
+      <QSpinnerGears size="xl" />
+      <span class="text-body1 q-mt-sm"> Sauvegarde des données... </span>
+    </div>
+
     <div :class="[useScreenMd('text-h3', 'text-h4'), 'q-mb-lg']">
       Chapitre "{{ route.params.chapter }}"
     </div>
@@ -309,3 +337,19 @@ type Question = {
     </QDialog>
   </div>
 </template>
+
+<style scoped>
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+
+    background: color-mix(in srgb, var(--surface), transparent 75%);
+    backdrop-filter: blur(0.25rem);
+  }
+</style>
