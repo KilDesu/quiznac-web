@@ -222,6 +222,23 @@
     const radioIndex = draftRadioIndex.value[questionIndex];
     return radioIndex === null || radioIndex === undefined ? [] : [radioIndex];
   }
+
+  function getEndMessage(percentage: number) {
+    switch (true) {
+      case percentage === 100:
+        return "Machine ! 🔥";
+      case percentage >= 75:
+        return "Ça passe ! 😎";
+      case percentage >= 60:
+        return "Pas loin, encore un petit effort ! 🏃‍♂️";
+      case percentage >= 50:
+        return "Il faut bosser, mais t'es sur la bonne voie ! 📚";
+      case percentage >= 10:
+        return "Va sérieusement falloir s'y mettre... 🫠";
+      default:
+        return "Bruh 💀";
+    }
+  }
 </script>
 
 <template>
@@ -283,20 +300,42 @@
 
         <div
           v-if="currentQuestionData.question.image"
+          :key="currentQuestionData.question.id"
           class="flex justify-center q-pr-md"
           style="width: 100%; min-width: 0"
         >
-          <img
+          <NuxtImg
+            v-slot="{ src, isLoaded }"
             :src="currentQuestionData.question.image"
-            alt=""
-            class="rounded-borders block"
-            style="
-              max-width: 100vw;
-              max-height: 20rem;
-              object-fit: contain;
-              border-radius: 0.75rem;
-            "
-          />
+            :custom="true"
+          >
+            <img
+              v-if="isLoaded"
+              :alt="`Image relative à la question &quot;${currentQuestionData.question.label}&quot;`"
+              :src
+              class="rounded-borders block"
+              style="
+                max-width: 100vw;
+                max-height: 20rem;
+                object-fit: contain;
+                border-radius: 0.75rem;
+              "
+            />
+
+            <QSkeleton
+              v-else
+              height="20rem"
+              width="32rem"
+              animation="pulse"
+              class="rounded-borders block"
+              style="
+                max-width: 100vw;
+                max-height: 20rem;
+                object-fit: contain;
+                border-radius: 0.75rem;
+              "
+            />
+          </NuxtImg>
         </div>
 
         <QBanner
@@ -381,6 +420,7 @@
             <div
               v-if="currentQuestionData.question.explanation.trim()"
               class="text-body2"
+              style="white-space: pre-line"
             >
               <span class="text-weight-medium">Explication : </span>
               {{ currentQuestionData.question.explanation }}
@@ -401,7 +441,7 @@
         >
           <AppBtn
             v-if="canGoNext"
-            :label="isLast ? 'Terminer' : 'Prochaine question'"
+            :label="isLast ? 'Terminer' : 'Continuer'"
             no-caps
             class="primary"
             @click="() => (isLast ? goToResults() : goNext())"
@@ -443,10 +483,12 @@
             Score :
             <span class="text-weight-medium">
               <template v-if="resultsSummary.answered > 0">
-                {{ percent }}%
+                {{ percent }}% ({{ resultsSummary.correct }}/{{
+                  resultsSummary.answered
+                }})
               </template>
               —
-              {{ +percent >= 75 ? "Ça passe !" : "Va falloir plus réviser !" }}
+              {{ getEndMessage(+percent) }}
             </span>
           </span>
           <span

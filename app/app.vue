@@ -45,6 +45,8 @@
 </script>
 
 <template>
+  <NuxtLoadingIndicator />
+
   <NuxtLayout>
     <NuxtPage />
 
