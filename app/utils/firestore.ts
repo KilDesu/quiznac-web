@@ -128,7 +128,7 @@ export async function updateQuestionInChapter(
   question: QuestionEdit,
   data: Ref<Partial<Data>>,
 ) {
-  const convertedQuestion = await convertQuestions(question);
+  const convertedQuestion = await prepareQuestions(question);
 
   const chapterRef = firestore
     .doc(db, course, chapter)
@@ -172,7 +172,7 @@ export async function addQuestionsToChapter(
 ) {
   const questionsToAdd = Array.isArray(questions) ? questions : [questions];
 
-  const convertedQuestions = await convertQuestions(questionsToAdd);
+  const convertedQuestions = await prepareQuestions(questionsToAdd);
 
   const chapterRef = firestore
     .doc(db, course, chapter)
@@ -318,13 +318,17 @@ async function saveDataLocally(
   localStorage.setItem(course, JSON.stringify(courseData));
 }
 
-async function convertQuestions(questions: QuestionEdit): Promise<Question>;
-async function convertQuestions(questions: QuestionEdit[]): Promise<Question[]>;
-async function convertQuestions(
+async function prepareQuestions(questions: QuestionEdit): Promise<Question>;
+async function prepareQuestions(questions: QuestionEdit[]): Promise<Question[]>;
+async function prepareQuestions(
   questions: QuestionEdit | QuestionEdit[],
 ): Promise<Question | Question[]> {
   if (!Array.isArray(questions)) {
     const id = questions.id ?? crypto.randomUUID();
+
+    questions.answers = questions.answers.map((answer) => {
+      return !answer.isAnswer ? { label: answer.label } : answer;
+    });
 
     if (!questions.image) {
       return { ...questions, id, image: null } as Question;
@@ -339,5 +343,5 @@ async function convertQuestions(
     };
   }
 
-  return Promise.all(questions.map((q) => convertQuestions(q)));
+  return Promise.all(questions.map((q) => prepareQuestions(q)));
 }
