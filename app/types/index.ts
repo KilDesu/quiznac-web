@@ -14,7 +14,7 @@ export type Answer = {
    * Est-ce que c'est une bonne réponse ou non.
    * Est Some seulement si `true`, sinon None.
    */
-  isAnswer: boolean | null;
+  isAnswer?: true;
 };
 
 /**

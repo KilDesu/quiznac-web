@@ -9,10 +9,7 @@
   const emptyQuestion: QuestionEdit = {
     label: "",
     image: null,
-    answers: [
-      { label: "", isAnswer: false },
-      { label: "", isAnswer: false },
-    ],
+    answers: [{ label: "" }, { label: "" }],
     explanation: "",
   };
 
@@ -88,7 +85,7 @@
   }
 
   function addAnswer() {
-    editedQuestion.value.answers.push({ label: "", isAnswer: false });
+    editedQuestion.value.answers.push({ label: "" });
   }
 
   function removeAnswer(index: number) {
@@ -101,7 +98,7 @@
   function toggleAnswerCorrect(index: number) {
     const a = editedQuestion.value.answers[index];
     if (a) {
-      a.isAnswer = !a.isAnswer;
+      a.isAnswer = a.isAnswer ? undefined : true;
     }
   }
 

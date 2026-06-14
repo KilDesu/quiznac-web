@@ -26,7 +26,7 @@ type Answer = {
     * Est-ce que c'est une bonne réponse ou non.
     * Doit apparaître seulement si "true".
     */
-  isAnswer: boolean | null;
+  isAnswer?: true;
 };
 
 /**
