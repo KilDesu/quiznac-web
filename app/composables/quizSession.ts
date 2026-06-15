@@ -11,10 +11,8 @@ export interface QuizSessionData {
   validated: boolean[];
   /** Per-question correctness */
   wasCorrect: (boolean | null)[];
-  /** Per-question single-choice draft */
-  draftRadioIndex: (number | null)[];
-  /** Per-question multi-choice draft */
-  draftCheckboxIndices: number[][];
+  /** Per-question selected answer indices */
+  draftSelections: number[][];
 }
 
 const STORAGE_KEY = "quiznac-session";
@@ -34,7 +32,26 @@ export function useQuizSession() {
       if (!raw) {
         return null;
       }
-      return JSON.parse(raw) as QuizSessionData;
+      const data = JSON.parse(raw);
+
+      // Migrate old format (draftRadioIndex + draftCheckboxIndices) → draftSelections
+      if (data.draftRadioIndex && !data.draftSelections) {
+        data.draftSelections = (data.draftRadioIndex as (number | null)[]).map(
+          (radio: number | null, i: number) => {
+            const checkboxes: number[] =
+              data.draftCheckboxIndices?.[i] ?? [];
+            return checkboxes.length > 0
+              ? checkboxes
+              : radio !== null && radio !== undefined
+                ? [radio]
+                : [];
+          },
+        );
+        delete data.draftRadioIndex;
+        delete data.draftCheckboxIndices;
+      }
+
+      return data as QuizSessionData;
     } catch {
       // Corrupt data — discard
       clear();

@@ -1,45 +1,145 @@
 <script lang="ts" setup>
+  /**
+   * @file QuestionsDisplay.vue
+   * @description Composant principal d'affichage et de gestion d'un quiz interactif.
+   *
+   * Gère l'intégralité du cycle de vie d'une session de quiz :
+   * - Navigation séquentielle entre les questions (avant/arrière)
+   * - Saisie des réponses (radio pour choix unique, checkboxes pour choix multiples)
+   * - Validation des réponses avec feedback immédiat (correct/incorrect + explication)
+   * - Persistance de la session en cours via `useQuizSession` (localStorage)
+   * - Restauration d'une session précédemment interrompue
+   * - Calcul et affichage des résultats finaux avec revue des erreurs
+   */
+
   import type { Question } from "~/types";
   import type { QuestionData } from "~/pages/review/[course].vue";
   import type { QuizSessionData } from "~/composables/quizSession";
 
+  /**
+   * @property {QuestionData[]} questions - Liste des questions à afficher, chacune contenant
+   *   la question elle-même et le chapitre associé.
+   * @property {string} [course] - Identifiant du cours. Nécessaire pour la sauvegarde
+   *   de session ; si absent, la persistance est désactivée.
+   * @property {QuizSessionData} [restoredState] - État d'une session précédente à restaurer.
+   *   Quand fourni, l'état du quiz est réhydraté une seule fois au montage.
+   */
   const props = defineProps<{
+    /**
+     * Liste des questions à afficher, chacune contenant
+     * la question elle-même et le chapitre associé.
+     */
     questions: QuestionData[];
+    /**
+     * Identifiant du cours. Nécessaire pour la sauvegarde
+     * de session ; si absent, la persistance est désactivée.
+     */
     course?: string;
+
+    /**
+     * État d'une session précédente à restaurer.
+     * Quand fourni, l'état du quiz est réhydraté une seule fois au montage.
+     */
     restoredState?: QuizSessionData;
   }>();
 
+  /**
+   * @event finished - Émis lorsque l'utilisateur termine le quiz (naturellement ou anticipément).
+   * @param payload
+   * @param payload.answered - Nombre de questions auxquelles l'utilisateur a répondu.
+   * @param payload.correct - Nombre de bonnes réponses.
+   * @param payload.total - Nombre total de questions dans le quiz.
+   */
   const emit = defineEmits<{
     finished: [payload: { answered: number; correct: number; total: number }];
   }>();
 
+  /** Méthodes de persistance de session (sauvegarde/suppression dans le localStorage). */
   const { save: saveToStorage, clear: clearStorage } = useQuizSession();
 
+  /** Phase du composant : `"quiz"` pendant la session, `"results"` à l'affichage des résultats. */
   type Phase = "quiz" | "results";
 
+  // ─── État réactif ─────────────────────────────────────────────────────────────
+
+  /** Phase courante du quiz. */
   const phase = ref<Phase>("quiz");
+
+  /** Index de la question actuellement affichée (0-based). */
   const viewIndex = ref(0);
+
+  /**
+   * Tableau de booléens indiquant, pour chaque question, si elle a été validée.
+   * `validated[i] === true` signifie que la question `i` a reçu une réponse définitive.
+   */
   const validated = ref<boolean[]>([]);
+
+  /**
+   * Résultat de la validation pour chaque question.
+   * - `true` : réponse correcte
+   * - `false` : réponse incorrecte
+   * - `null` : pas encore validée
+   */
   const wasCorrect = ref<(boolean | null)[]>([]);
-  const draftRadioIndex = ref<(number | null)[]>([]);
-  const draftCheckboxIndices = ref<number[][]>([]);
+
+  /**
+   * Indices des réponses sélectionnées par l'utilisateur pour chaque question.
+   * Représentation unifiée : un choix unique est un tableau à un élément (ex. `[2]`),
+   * un choix multiple est un tableau trié de plusieurs indices (ex. `[0, 2, 3]`).
+   */
+  const draftSelections = ref<number[][]>([]);
+
+  /** Message d'erreur affiché quand la validation est bloquée (ex. : aucune bonne réponse configurée). */
   const validateBlockedMessage = ref("");
+
+  /**
+   * Garde empêchant la restauration de s'exécuter plus d'une fois.
+   * Non-réactif car il s'agit d'un flag interne consommé uniquement dans `initFromQuestions`.
+   */
   let hasRestoredSession = false;
 
+  // ─── Propriétés calculées ─────────────────────────────────────────────────────
+
+  /** Données de la question courante, ou `null` si l'index est hors limites. */
   const currentQuestionData = computed(
     () => props.questions[viewIndex.value] ?? null,
   );
+
+  /** Statistiques de la session en cours (questions répondues, correctes, total). */
   const resultsSummary = computed(() => answeredStats());
+
+  /** Vrai si l'utilisateur peut revenir à la question précédente. */
   const canGoPrev = computed(
     () => phase.value === "quiz" && viewIndex.value > 0,
   );
+
+  /**
+   * Vrai si l'utilisateur peut avancer à la question suivante.
+   * On ne peut avancer que vers une question déjà validée (en dessous de la frontière).
+   * Ne peux pas avancer si aucune réponse n'est sélectionnée.
+   */
   const canGoNext = computed(
     () => phase.value === "quiz" && viewIndex.value < frontier.value,
   );
+
+  /**
+   * La « frontière » représente l'index de la prochaine question non validée.
+   * C'est la limite au-delà de laquelle l'utilisateur ne peut pas naviguer.
+   *
+   * - Si toutes les questions sont validées, vaut `questions.length` (fin du quiz).
+   * - Sinon, vaut l'index de la première question non encore validée.
+   */
   const frontier = computed(() => {
     const notValidatedIndex = validated.value.findIndex((v) => !v);
-    return notValidatedIndex === -1 ? props.questions.length : notValidatedIndex;
+    return notValidatedIndex === -1
+      ? props.questions.length
+      : notValidatedIndex;
   });
+
+  /**
+   * Vrai si l'utilisateur peut modifier sa sélection de réponse pour la question courante.
+   * Conditions : être en phase quiz, être sur la question frontière, et ne pas l'avoir encore validée.
+   */
   const canEditSelection = computed(() => {
     if (phase.value !== "quiz") {
       return false;
@@ -53,16 +153,25 @@
     );
   });
 
+  /**
+   * Options formatées pour le composant `QOptionGroup` (radio) de la question courante.
+   * Chaque option contient un `label` et un `value` correspondant à l'index de la réponse.
+   */
   const radioOptions = computed(() => {
     const question = currentQuestionData.value?.question;
     if (!question) {
       return [];
     }
     return question.answers.map((answer, index) => ({
-      label: answer.label.trim() || `Réponse ${index + 1}`,
+      label: answer.label,
       value: index,
     }));
   });
+
+  /**
+   * Indices des questions auxquelles l'utilisateur a répondu incorrectement.
+   * Utilisé dans la phase résultats pour la section « Revoir les erreurs ».
+   */
   const errorReviewIndices = computed(() => {
     const out: number[] = [];
 
@@ -74,6 +183,14 @@
     return out;
   });
 
+  // ─── Watchers ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Réinitialise (ou restaure) l'état du quiz à chaque changement de la liste
+   * des questions. Déclenché immédiatement au montage (`immediate: true`).
+   * La comparaison est superficielle (`deep: false`) : on réagit uniquement
+   * quand la référence du tableau change, pas quand son contenu est muté.
+   */
   watch(
     () => props.questions,
     () => {
@@ -82,30 +199,56 @@
     { immediate: true, deep: false },
   );
 
+  // ─── Utilitaires sur les questions ────────────────────────────────────────────
+
+  /**
+   * Retourne les indices des réponses correctes pour une question donnée.
+   * @param question - La question à analyser.
+   * @returns Indices (0-based) des réponses marquées comme correctes.
+   */
   function correctIndices(question: Question): number[] {
     return question.answers
       .map((answer, index) => (answer.isAnswer ? index : -1))
       .filter((index) => index >= 0);
   }
 
+  /**
+   * Compte le nombre de réponses correctes pour une question.
+   * @param question - La question à analyser.
+   * @returns Nombre de réponses marquées comme correctes.
+   */
   function countCorrectAnswers(question: Question): number {
     return question.answers.filter((answer) => answer.isAnswer).length;
   }
 
+  /**
+   * Détermine si une question admet plusieurs réponses correctes.
+   * Utilisé pour choisir entre l'affichage radio (choix unique) et checkbox (choix multiples).
+   * @param question - La question à analyser.
+   * @returns `true` si plus d'une réponse est correcte.
+   */
   function isMultipleCorrect(question: Question): boolean {
     return countCorrectAnswers(question) > 1;
   }
 
+  // ─── Initialisation et persistance ────────────────────────────────────────────
+
+  /**
+   * Initialise l'état du quiz, soit en restaurant une session précédente,
+   * soit en créant un état vierge.
+   *
+   * La restauration ne se produit qu'une seule fois (gardée par `hasRestoredSession`)
+   * pour éviter d'écraser l'état en cas de re-déclenchement du watcher.
+   */
   function initFromQuestions() {
     if (props.restoredState && !hasRestoredSession) {
       hasRestoredSession = true;
       viewIndex.value = props.restoredState.viewIndex;
       validated.value = [...props.restoredState.validated];
       wasCorrect.value = [...props.restoredState.wasCorrect];
-      draftRadioIndex.value = [...props.restoredState.draftRadioIndex];
-      draftCheckboxIndices.value = props.restoredState.draftCheckboxIndices.map(
-        (arr) => [...arr],
-      );
+      draftSelections.value = props.restoredState.draftSelections.map((arr) => [
+        ...arr,
+      ]);
       phase.value = "quiz";
       validateBlockedMessage.value = "";
       return;
@@ -114,16 +257,16 @@
     const questionsCount = props.questions.length;
     validated.value = Array(questionsCount).fill(false);
     wasCorrect.value = Array(questionsCount).fill(null);
-    draftRadioIndex.value = Array(questionsCount).fill(null);
-    draftCheckboxIndices.value = Array.from(
-      { length: questionsCount },
-      () => [],
-    );
+    draftSelections.value = Array.from({ length: questionsCount }, () => []);
     viewIndex.value = 0;
     phase.value = "quiz";
     validateBlockedMessage.value = "";
   }
 
+  /**
+   * Persiste l'état courant de la session dans le localStorage.
+   * Ne fait rien si aucun identifiant de cours n'est fourni.
+   */
   function saveSession() {
     if (!props.course) {
       return;
@@ -134,17 +277,23 @@
       viewIndex: viewIndex.value,
       validated: validated.value,
       wasCorrect: wasCorrect.value,
-      draftRadioIndex: draftRadioIndex.value,
-      draftCheckboxIndices: draftCheckboxIndices.value,
+      draftSelections: draftSelections.value,
     });
   }
 
+  // ─── Navigation ───────────────────────────────────────────────────────────────
+
+  /** Recule d'une question si la navigation arrière est possible. */
   function goPrev() {
     if (canGoPrev.value) {
       viewIndex.value--;
     }
   }
 
+  /**
+   * Avance à la question suivante si la navigation avant est possible.
+   * Sauvegarde la session après chaque avancement pour ne pas perdre la progression.
+   */
   function goNext() {
     if (canGoNext.value) {
       viewIndex.value++;
@@ -152,6 +301,14 @@
     }
   }
 
+  // ─── Validation des réponses ──────────────────────────────────────────────────
+
+  /**
+   * Compare deux tableaux de nombres en tant qu'ensembles (ordre ignoré).
+   * @param arr1 - Premier ensemble d'indices.
+   * @param arr2 - Second ensemble d'indices.
+   * @returns `true` si les deux ensembles contiennent exactement les mêmes éléments.
+   */
   function setsEqual(arr1: number[], arr2: number[]): boolean {
     if (arr1.length !== arr2.length) {
       return false;
@@ -161,6 +318,15 @@
     return sortedA.every((v, i) => v === sortedB[i]);
   }
 
+  /**
+   * Valide la réponse de l'utilisateur pour la question courante (celle à la frontière).
+   *
+   * Déroulement :
+   * 1. Vérifie que la question n'est pas déjà validée et qu'elle existe.
+   * 2. Vérifie qu'au moins une bonne réponse est configurée ; sinon, affiche un message d'erreur.
+   * 3. Compare la sélection de l'utilisateur aux réponses correctes via `setsEqual`.
+   * 4. Marque la question comme validée et enregistre le résultat (correct/incorrect).
+   */
   function validateCurrent() {
     validateBlockedMessage.value = "";
     const i = frontier.value;
@@ -179,19 +345,23 @@
       return;
     }
 
-    let ok = false;
-    if (isMultipleCorrect(question)) {
-      const picked = draftCheckboxIndices.value[i] ?? [];
-      ok = setsEqual(picked, correct);
-    } else {
-      const sel = draftRadioIndex.value[i];
-      ok = correct.length === 1 && sel === correct[0];
-    }
+    const picked = draftSelections.value[i] ?? [];
+    const ok = setsEqual(picked, correct);
 
     validated.value[i] = true;
     wasCorrect.value[i] = ok;
+    saveSession();
   }
 
+  // ─── Statistiques et résultats ────────────────────────────────────────────────
+
+  /**
+   * Calcule les statistiques de la session en cours.
+   * @returns
+   *   - `answered` : nombre de questions validées
+   *   - `correct` : nombre de bonnes réponses
+   *   - `total` : nombre total de questions
+   */
   function answeredStats() {
     let answered = 0;
     let correct = 0;
@@ -207,6 +377,10 @@
     return { answered, correct, total: n };
   }
 
+  /**
+   * Passe à la phase résultats : supprime la session sauvegardée,
+   * bascule sur l'écran de résultats, et émet l'événement `finished`.
+   */
   function goToResults() {
     clearStorage();
     phase.value = "results";
@@ -214,16 +388,35 @@
     emit("finished", { answered, correct, total });
   }
 
+  /**
+   * Raccourci pour terminer le quiz de manière anticipée.
+   * Les questions non validées ne sont pas comptabilisées dans le score.
+   */
   function finishEarly() {
     goToResults();
   }
 
+  /**
+   * Réinitialise complètement le quiz : supprime la session sauvegardée
+   * et recrée un état vierge à partir des questions.
+   */
   function resetQuiz() {
     clearStorage();
     initFromQuestions();
   }
 
-  function toggleCheckbox(
+  // ─── Gestion des sélections utilisateur ───────────────────────────────────────
+
+  /**
+   * Ajoute ou retire un index de réponse pour une question à choix multiples.
+   * Ne fait rien si la question n'est pas modifiable ou si l'index ne correspond pas
+   * à la question courante.
+   *
+   * @param questionIndex - Index de la question concernée.
+   * @param answerIndex - Index de la réponse à cocher/décocher.
+   * @param checked - `true` pour cocher, `false` pour décocher.
+   */
+  function toggleAnswer(
     questionIndex: number,
     answerIndex: number,
     checked: boolean,
@@ -231,36 +424,49 @@
     if (!canEditSelection.value || viewIndex.value !== questionIndex) {
       return;
     }
-    const row = draftCheckboxIndices.value[questionIndex] ?? [];
-    const next = checked
+    const row = draftSelections.value[questionIndex] ?? [];
+    draftSelections.value[questionIndex] = checked
       ? [...new Set([...row, answerIndex])].sort((a, b) => a - b)
       : row.filter((x) => x !== answerIndex);
-    draftCheckboxIndices.value[questionIndex] = next;
   }
 
-  function setRadio(questionIndex: number, value: number | null) {
+  /**
+   * Sélectionne une unique réponse pour une question à choix unique.
+   * @param questionIndex - Index de la question concernée.
+   * @param answerIndex - Index de la réponse sélectionnée.
+   */
+  function selectAnswer(questionIndex: number, answerIndex: number) {
     if (!canEditSelection.value || viewIndex.value !== questionIndex) {
       return;
     }
-    draftRadioIndex.value[questionIndex] = value;
+    draftSelections.value[questionIndex] = [answerIndex];
   }
 
+  // ─── Formatage d'affichage ────────────────────────────────────────────────────
+
+  /**
+   * Construit une chaîne lisible à partir d'indices de réponses.
+   * Utilisé pour afficher les réponses correctes ou les choix de l'utilisateur dans les résultats.
+   *
+   * @param question - La question dont on extrait les labels.
+   * @param indices - Indices des réponses à afficher.
+   * @returns Labels séparés par des virgules, avec fallback « Réponse N » si le label est vide.
+   */
   function answerLabels(question: Question, indices: number[]): string {
     return indices
       .filter((i) => i >= 0 && i < question.answers.length)
-      .map((i) => question.answers[i]!.label.trim() || `Réponse ${i + 1}`)
+      .map((i) => question.answers[i]!.label)
       .join(", ");
   }
 
-  function userPickedIndices(
-    question: Question,
-    questionIndex: number,
-  ): number[] {
-    if (isMultipleCorrect(question)) {
-      return [...(draftCheckboxIndices.value[questionIndex] ?? [])];
-    }
-    const radioIndex = draftRadioIndex.value[questionIndex];
-    return radioIndex === null || radioIndex === undefined ? [] : [radioIndex];
+  /**
+   * Retourne les indices des réponses sélectionnées par l'utilisateur pour une question donnée.
+   *
+   * @param questionIndex - Index de la question dans le tableau.
+   * @returns Indices des réponses choisies par l'utilisateur.
+   */
+  function userPickedIndices(questionIndex: number): number[] {
+    return [...(draftSelections.value[questionIndex] ?? [])];
   }
 
   function getEndMessage(percentage: number) {
@@ -333,99 +539,98 @@
 
       <QSeparator style="background: var(--outline)" />
 
-      <QCardSection v-if="currentQuestionData" class="column q-gutter-md">
-        <div class="text-h6" style="word-break: break-word">
-          {{ currentQuestionData.question.label }}
-        </div>
-
-        <div
-          v-if="currentQuestionData.question.image"
-          :key="currentQuestionData.question.id"
-          class="flex justify-center q-pr-md"
-          style="width: 100%; min-width: 0"
-        >
-          <NuxtImg
-            v-slot="{ src, isLoaded }"
-            :src="currentQuestionData.question.image"
-            :custom="true"
-          >
-            <img
-              v-if="isLoaded"
-              :alt="`Image relative à la question &quot;${currentQuestionData.question.label}&quot;`"
-              :src
-              class="rounded-borders block"
-              style="
-                max-width: 100vw;
-                max-height: 20rem;
-                object-fit: contain;
-                border-radius: 0.75rem;
-              "
-            />
-
-            <QSkeleton
-              v-else
-              height="20rem"
-              width="32rem"
-              animation="pulse"
-              class="rounded-borders block"
-              style="
-                max-width: 100vw;
-                max-height: 20rem;
-                object-fit: contain;
-                border-radius: 0.75rem;
-              "
-            />
-          </NuxtImg>
-        </div>
-
-        <QBanner
-          v-if="validateBlockedMessage"
-          dense
-          rounded
-          class="error-container q-pa-sm"
-        >
-          {{ validateBlockedMessage }}
-        </QBanner>
-
-        <div
-          v-if="isMultipleCorrect(currentQuestionData.question)"
-          class="column q-gutter-sm"
-        >
-          <span class="text-subtitle2 text-on-surface-variant">
-            Plusieurs réponses correctes possibles
-          </span>
-          <div
-            v-for="(answer, idx) in currentQuestionData.question.answers"
-            :key="idx"
-            class="row items-center no-wrap q-gutter-sm"
-          >
-            <QCheckbox
-              :model-value="
-                draftCheckboxIndices[viewIndex]?.includes(idx) ?? false
-              "
-              :disable="!canEditSelection"
-              :label="answer.label"
-              dense
-              class="text-body1"
-              @update:model-value="
-                (v) => toggleCheckbox(viewIndex, idx, Boolean(v))
-              "
-            />
+      <template v-if="currentQuestionData">
+        <QCardSection class="column q-gutter-md">
+          <div class="text-h6" style="word-break: break-word">
+            {{ currentQuestionData.question.label }}
           </div>
-        </div>
 
-        <QOptionGroup
-          v-else
-          :model-value="draftRadioIndex[viewIndex]"
-          :options="radioOptions"
-          type="radio"
-          color="primary"
-          :disable="!canEditSelection"
-          @update:model-value="(v) => setRadio(viewIndex, v as number | null)"
-        />
+          <div
+            v-if="currentQuestionData.question.image"
+            :key="currentQuestionData.question.id"
+            class="flex justify-center q-pr-md"
+            style="width: 100%; min-width: 0"
+          >
+            <NuxtImg
+              v-slot="{ src, isLoaded }"
+              :src="currentQuestionData.question.image"
+              :custom="true"
+            >
+              <img
+                v-if="isLoaded"
+                :alt="`Image relative à la question &quot;${currentQuestionData.question.label}&quot;`"
+                :src
+                class="rounded-borders block"
+                style="
+                  max-width: 100vw;
+                  max-height: 20rem;
+                  object-fit: contain;
+                  border-radius: 0.75rem;
+                "
+              />
 
-        <template v-if="validated[viewIndex]">
-          <QSeparator style="background: var(--outline)" />
+              <QSkeleton
+                v-else
+                height="20rem"
+                width="32rem"
+                animation="pulse"
+                class="rounded-borders block"
+                style="
+                  max-width: 100vw;
+                  max-height: 20rem;
+                  object-fit: contain;
+                  border-radius: 0.75rem;
+                "
+              />
+            </NuxtImg>
+          </div>
+        </QCardSection>
+
+        <QCardSection v-if="validateBlockedMessage">
+          <QBanner dense rounded class="error-container q-pa-sm">
+            {{ validateBlockedMessage }}
+          </QBanner>
+        </QCardSection>
+
+        <QCardSection>
+          <div
+            v-if="isMultipleCorrect(currentQuestionData.question)"
+            class="column q-gutter-sm"
+          >
+            <span class="text-subtitle2 text-on-surface-variant">
+              Plusieurs réponses correctes possibles
+            </span>
+            <div
+              v-for="(answer, idx) in currentQuestionData.question.answers"
+              :key="idx"
+              class="row items-center no-wrap q-gutter-sm"
+            >
+              <QCheckbox
+                :model-value="
+                  draftSelections[viewIndex]?.includes(idx) ?? false
+                "
+                :disable="!canEditSelection"
+                :label="answer.label"
+                dense
+                class="text-body1"
+                @update:model-value="
+                  (v) => toggleAnswer(viewIndex, idx, Boolean(v))
+                "
+              />
+            </div>
+          </div>
+
+          <QOptionGroup
+            v-else
+            :model-value="draftSelections[viewIndex]?.[0] ?? null"
+            :options="radioOptions"
+            type="radio"
+            color="primary"
+            :disable="!canEditSelection"
+            @update:model-value="(v) => selectAnswer(viewIndex, v as number)"
+          />
+        </QCardSection>
+        <QCardSection v-if="validated[viewIndex]">
           <QBanner
             dense
             rounded
@@ -466,8 +671,8 @@
               {{ currentQuestionData.question.explanation }}
             </div>
           </QBanner>
-        </template>
-      </QCardSection>
+        </QCardSection>
+      </template>
 
       <QSeparator style="background: var(--outline)" />
 
@@ -490,6 +695,7 @@
           <AppBtn
             v-else-if="canEditSelection"
             label="Valider"
+            :disable="!(draftSelections[viewIndex] ?? []).length"
             no-caps
             class="primary"
             @click="validateCurrent"
@@ -573,10 +779,7 @@
                   {{
                     answerLabels(
                       questions[questionIndex]!.question,
-                      userPickedIndices(
-                        questions[questionIndex]!.question,
-                        questionIndex,
-                      ),
+                      userPickedIndices(questionIndex),
                     ) || "—"
                   }}
                 </div>
