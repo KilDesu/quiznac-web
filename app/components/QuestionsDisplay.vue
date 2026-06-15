@@ -1,45 +1,150 @@
 <script lang="ts" setup>
+  /**
+   * @file QuestionsDisplay.vue
+   * @description Composant principal d'affichage et de gestion d'un quiz interactif.
+   *
+   * Gère l'intégralité du cycle de vie d'une session de quiz :
+   * - Navigation séquentielle entre les questions (avant/arrière)
+   * - Saisie des réponses (radio pour choix unique, checkboxes pour choix multiples)
+   * - Validation des réponses avec feedback immédiat (correct/incorrect + explication)
+   * - Persistance de la session en cours via `useQuizSession` (localStorage)
+   * - Restauration d'une session précédemment interrompue
+   * - Calcul et affichage des résultats finaux avec revue des erreurs
+   */
+
   import type { Question } from "~/types";
   import type { QuestionData } from "~/pages/review/[course].vue";
   import type { QuizSessionData } from "~/composables/quizSession";
 
+  /**
+   * @property {QuestionData[]} questions - Liste des questions à afficher, chacune contenant
+   *   la question elle-même et le chapitre associé.
+   * @property {string} [course] - Identifiant du cours. Nécessaire pour la sauvegarde
+   *   de session ; si absent, la persistance est désactivée.
+   * @property {QuizSessionData} [restoredState] - État d'une session précédente à restaurer.
+   *   Quand fourni, l'état du quiz est réhydraté une seule fois au montage.
+   */
   const props = defineProps<{
+    /**
+     * Liste des questions à afficher, chacune contenant
+     * la question elle-même et le chapitre associé.
+     */
     questions: QuestionData[];
+    /**
+     * Identifiant du cours. Nécessaire pour la sauvegarde
+     * de session ; si absent, la persistance est désactivée.
+     */
     course?: string;
+
+    /**
+     * État d'une session précédente à restaurer.
+     * Quand fourni, l'état du quiz est réhydraté une seule fois au montage.
+     */
     restoredState?: QuizSessionData;
   }>();
 
+  /**
+   * @event finished - Émis lorsque l'utilisateur termine le quiz (naturellement ou anticipément).
+   * @param payload
+   * @param payload.answered - Nombre de questions auxquelles l'utilisateur a répondu.
+   * @param payload.correct - Nombre de bonnes réponses.
+   * @param payload.total - Nombre total de questions dans le quiz.
+   */
   const emit = defineEmits<{
     finished: [payload: { answered: number; correct: number; total: number }];
   }>();
 
+  /** Méthodes de persistance de session (sauvegarde/suppression dans le localStorage). */
   const { save: saveToStorage, clear: clearStorage } = useQuizSession();
 
+  /** Phase du composant : `"quiz"` pendant la session, `"results"` à l'affichage des résultats. */
   type Phase = "quiz" | "results";
 
+  // ─── État réactif ─────────────────────────────────────────────────────────────
+
+  /** Phase courante du quiz. */
   const phase = ref<Phase>("quiz");
+
+  /** Index de la question actuellement affichée (0-based). */
   const viewIndex = ref(0);
+
+  /**
+   * Tableau de booléens indiquant, pour chaque question, si elle a été validée.
+   * `validated[i] === true` signifie que la question `i` a reçu une réponse définitive.
+   */
   const validated = ref<boolean[]>([]);
+
+  /**
+   * Résultat de la validation pour chaque question.
+   * - `true` : réponse correcte
+   * - `false` : réponse incorrecte
+   * - `null` : pas encore validée
+   */
   const wasCorrect = ref<(boolean | null)[]>([]);
+
+  /**
+   * Index de la réponse sélectionnée (radio) pour chaque question à choix unique.
+   * `null` si aucune sélection n'a été faite.
+   */
   const draftRadioIndex = ref<(number | null)[]>([]);
+
+  /**
+   * Indices des réponses cochées pour chaque question à choix multiples.
+   * Chaque entrée est un tableau trié d'indices de réponses.
+   */
   const draftCheckboxIndices = ref<number[][]>([]);
+
+  /** Message d'erreur affiché quand la validation est bloquée (ex. : aucune bonne réponse configurée). */
   const validateBlockedMessage = ref("");
+
+  /**
+   * Garde empêchant la restauration de s'exécuter plus d'une fois.
+   * Non-réactif car il s'agit d'un flag interne consommé uniquement dans `initFromQuestions`.
+   */
   let hasRestoredSession = false;
 
+  // ─── Propriétés calculées ─────────────────────────────────────────────────────
+
+  /** Données de la question courante, ou `null` si l'index est hors limites. */
   const currentQuestionData = computed(
     () => props.questions[viewIndex.value] ?? null,
   );
+
+  /** Statistiques de la session en cours (questions répondues, correctes, total). */
   const resultsSummary = computed(() => answeredStats());
+
+  /** Vrai si l'utilisateur peut revenir à la question précédente. */
   const canGoPrev = computed(
     () => phase.value === "quiz" && viewIndex.value > 0,
   );
+
+  /**
+   * Vrai si l'utilisateur peut avancer à la question suivante.
+   * On ne peut avancer que vers une question déjà validée (en dessous de la frontière).
+   * Ne peux pas avancer si aucune réponse n'est sélectionnée.
+   */
   const canGoNext = computed(
     () => phase.value === "quiz" && viewIndex.value < frontier.value,
   );
+
+  /**
+   * La « frontière » représente l'index de la prochaine question non validée.
+   * C'est la limite au-delà de laquelle l'utilisateur ne peut pas naviguer.
+   *
+   * - Si toutes les questions sont validées, vaut `questions.length` (fin du quiz).
+   * - Sinon, vaut l'index de la première question non encore validée.
+   */
   const frontier = computed(() => {
     const notValidatedIndex = validated.value.findIndex((v) => !v);
-    return notValidatedIndex === -1 ? props.questions.length : notValidatedIndex;
+    return notValidatedIndex === -1
+      ? props.questions.length
+      : notValidatedIndex;
   });
+
+  /**
+   * Vrai si l'utilisateur peut modifier sa sélection de réponse pour la question courante.
+   * Conditions : être en phase quiz, être sur la question frontière, et ne pas l'avoir encore validée.
+   */
   const canEditSelection = computed(() => {
     if (phase.value !== "quiz") {
       return false;
@@ -53,6 +158,10 @@
     );
   });
 
+  /**
+   * Options formatées pour le composant `QOptionGroup` (radio) de la question courante.
+   * Chaque option contient un `label` lisible et un `value` correspondant à l'index de la réponse.
+   */
   const radioOptions = computed(() => {
     const question = currentQuestionData.value?.question;
     if (!question) {
@@ -63,6 +172,11 @@
       value: index,
     }));
   });
+
+  /**
+   * Indices des questions auxquelles l'utilisateur a répondu incorrectement.
+   * Utilisé dans la phase résultats pour la section « Revoir les erreurs ».
+   */
   const errorReviewIndices = computed(() => {
     const out: number[] = [];
 
@@ -74,6 +188,14 @@
     return out;
   });
 
+  // ─── Watchers ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Réinitialise (ou restaure) l'état du quiz à chaque changement de la liste
+   * des questions. Déclenché immédiatement au montage (`immediate: true`).
+   * La comparaison est superficielle (`deep: false`) : on réagit uniquement
+   * quand la référence du tableau change, pas quand son contenu est muté.
+   */
   watch(
     () => props.questions,
     () => {
@@ -82,20 +204,47 @@
     { immediate: true, deep: false },
   );
 
+  // ─── Utilitaires sur les questions ────────────────────────────────────────────
+
+  /**
+   * Retourne les indices des réponses correctes pour une question donnée.
+   * @param question - La question à analyser.
+   * @returns Indices (0-based) des réponses marquées comme correctes.
+   */
   function correctIndices(question: Question): number[] {
     return question.answers
       .map((answer, index) => (answer.isAnswer ? index : -1))
       .filter((index) => index >= 0);
   }
 
+  /**
+   * Compte le nombre de réponses correctes pour une question.
+   * @param question - La question à analyser.
+   * @returns Nombre de réponses marquées comme correctes.
+   */
   function countCorrectAnswers(question: Question): number {
     return question.answers.filter((answer) => answer.isAnswer).length;
   }
 
+  /**
+   * Détermine si une question admet plusieurs réponses correctes.
+   * Utilisé pour choisir entre l'affichage radio (choix unique) et checkbox (choix multiples).
+   * @param question - La question à analyser.
+   * @returns `true` si plus d'une réponse est correcte.
+   */
   function isMultipleCorrect(question: Question): boolean {
     return countCorrectAnswers(question) > 1;
   }
 
+  // ─── Initialisation et persistance ────────────────────────────────────────────
+
+  /**
+   * Initialise l'état du quiz, soit en restaurant une session précédente,
+   * soit en créant un état vierge.
+   *
+   * La restauration ne se produit qu'une seule fois (gardée par `hasRestoredSession`)
+   * pour éviter d'écraser l'état en cas de re-déclenchement du watcher.
+   */
   function initFromQuestions() {
     if (props.restoredState && !hasRestoredSession) {
       hasRestoredSession = true;
@@ -124,6 +273,10 @@
     validateBlockedMessage.value = "";
   }
 
+  /**
+   * Persiste l'état courant de la session dans le localStorage.
+   * Ne fait rien si aucun identifiant de cours n'est fourni.
+   */
   function saveSession() {
     if (!props.course) {
       return;
@@ -139,12 +292,19 @@
     });
   }
 
+  // ─── Navigation ───────────────────────────────────────────────────────────────
+
+  /** Recule d'une question si la navigation arrière est possible. */
   function goPrev() {
     if (canGoPrev.value) {
       viewIndex.value--;
     }
   }
 
+  /**
+   * Avance à la question suivante si la navigation avant est possible.
+   * Sauvegarde la session après chaque avancement pour ne pas perdre la progression.
+   */
   function goNext() {
     if (canGoNext.value) {
       viewIndex.value++;
@@ -152,6 +312,14 @@
     }
   }
 
+  // ─── Validation des réponses ──────────────────────────────────────────────────
+
+  /**
+   * Compare deux tableaux de nombres en tant qu'ensembles (ordre ignoré).
+   * @param arr1 - Premier ensemble d'indices.
+   * @param arr2 - Second ensemble d'indices.
+   * @returns `true` si les deux ensembles contiennent exactement les mêmes éléments.
+   */
   function setsEqual(arr1: number[], arr2: number[]): boolean {
     if (arr1.length !== arr2.length) {
       return false;
@@ -161,6 +329,17 @@
     return sortedA.every((v, i) => v === sortedB[i]);
   }
 
+  /**
+   * Valide la réponse de l'utilisateur pour la question courante (celle à la frontière).
+   *
+   * Déroulement :
+   * 1. Vérifie que la question n'est pas déjà validée et qu'elle existe.
+   * 2. Vérifie qu'au moins une bonne réponse est configurée ; sinon, affiche un message d'erreur.
+   * 3. Compare la sélection de l'utilisateur aux réponses correctes :
+   *    - Choix multiples → comparaison d'ensembles via `setsEqual`.
+   *    - Choix unique → comparaison directe de l'index sélectionné.
+   * 4. Marque la question comme validée et enregistre le résultat (correct/incorrect).
+   */
   function validateCurrent() {
     validateBlockedMessage.value = "";
     const i = frontier.value;
@@ -192,6 +371,15 @@
     wasCorrect.value[i] = ok;
   }
 
+  // ─── Statistiques et résultats ────────────────────────────────────────────────
+
+  /**
+   * Calcule les statistiques de la session en cours.
+   * @returns
+   *   - `answered` : nombre de questions validées
+   *   - `correct` : nombre de bonnes réponses
+   *   - `total` : nombre total de questions
+   */
   function answeredStats() {
     let answered = 0;
     let correct = 0;
@@ -207,6 +395,10 @@
     return { answered, correct, total: n };
   }
 
+  /**
+   * Passe à la phase résultats : supprime la session sauvegardée,
+   * bascule sur l'écran de résultats, et émet l'événement `finished`.
+   */
   function goToResults() {
     clearStorage();
     phase.value = "results";
@@ -214,15 +406,34 @@
     emit("finished", { answered, correct, total });
   }
 
+  /**
+   * Raccourci pour terminer le quiz de manière anticipée.
+   * Les questions non validées ne sont pas comptabilisées dans le score.
+   */
   function finishEarly() {
     goToResults();
   }
 
+  /**
+   * Réinitialise complètement le quiz : supprime la session sauvegardée
+   * et recrée un état vierge à partir des questions.
+   */
   function resetQuiz() {
     clearStorage();
     initFromQuestions();
   }
 
+  // ─── Gestion des sélections utilisateur ───────────────────────────────────────
+
+  /**
+   * Ajoute ou retire un index de réponse dans les checkboxes d'une question à choix multiples.
+   * Ne fait rien si la question n'est pas modifiable ou si l'index ne correspond pas
+   * à la question courante.
+   *
+   * @param questionIndex - Index de la question concernée.
+   * @param answerIndex - Index de la réponse à cocher/décocher.
+   * @param checked - `true` pour cocher, `false` pour décocher.
+   */
   function toggleCheckbox(
     questionIndex: number,
     answerIndex: number,
@@ -238,6 +449,11 @@
     draftCheckboxIndices.value[questionIndex] = next;
   }
 
+  /**
+   * Met à jour la sélection radio d'une question à choix unique.
+   * @param questionIndex - Index de la question concernée.
+   * @param value - Index de la réponse sélectionnée, ou `null` pour désélectionner.
+   */
   function setRadio(questionIndex: number, value: number | null) {
     if (!canEditSelection.value || viewIndex.value !== questionIndex) {
       return;
@@ -245,6 +461,16 @@
     draftRadioIndex.value[questionIndex] = value;
   }
 
+  // ─── Formatage d'affichage ────────────────────────────────────────────────────
+
+  /**
+   * Construit une chaîne lisible à partir d'indices de réponses.
+   * Utilisé pour afficher les réponses correctes ou les choix de l'utilisateur dans les résultats.
+   *
+   * @param question - La question dont on extrait les labels.
+   * @param indices - Indices des réponses à afficher.
+   * @returns Labels séparés par des virgules, avec fallback « Réponse N » si le label est vide.
+   */
   function answerLabels(question: Question, indices: number[]): string {
     return indices
       .filter((i) => i >= 0 && i < question.answers.length)
@@ -252,6 +478,14 @@
       .join(", ");
   }
 
+  /**
+   * Retourne les indices des réponses sélectionnées par l'utilisateur pour une question donnée.
+   * Adapte automatiquement la source (checkbox ou radio) selon le type de question.
+   *
+   * @param question - La question concernée.
+   * @param questionIndex - Index de la question dans le tableau.
+   * @returns Indices des réponses choisies par l'utilisateur.
+   */
   function userPickedIndices(
     question: Question,
     questionIndex: number,
@@ -490,6 +724,12 @@
           <AppBtn
             v-else-if="canEditSelection"
             label="Valider"
+            :disable="
+              isMultipleCorrect(currentQuestionData!.question)
+                ? (draftCheckboxIndices[viewIndex] ?? []).length === 0
+                : draftRadioIndex[viewIndex] === undefined ||
+                  draftRadioIndex[viewIndex] === null
+            "
             no-caps
             class="primary"
             @click="validateCurrent"
