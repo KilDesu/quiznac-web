@@ -1,12 +1,19 @@
 <script lang="ts" setup>
   import type { Question } from "~/types";
   import type { QuestionData } from "~/pages/review/[course].vue";
+  import type { QuizSessionData } from "~/composables/quizSession";
 
-  const { questions } = defineProps<{ questions: QuestionData[] }>();
+  const props = defineProps<{
+    questions: QuestionData[];
+    course?: string;
+    restoredState?: QuizSessionData;
+  }>();
 
   const emit = defineEmits<{
     finished: [payload: { answered: number; correct: number; total: number }];
   }>();
+
+  const { save: saveToStorage, clear: clearStorage } = useQuizSession();
 
   type Phase = "quiz" | "results";
 
@@ -17,9 +24,10 @@
   const draftRadioIndex = ref<(number | null)[]>([]);
   const draftCheckboxIndices = ref<number[][]>([]);
   const validateBlockedMessage = ref("");
+  let hasRestoredSession = false;
 
   const currentQuestionData = computed(
-    () => questions[viewIndex.value] ?? null,
+    () => props.questions[viewIndex.value] ?? null,
   );
   const resultsSummary = computed(() => answeredStats());
   const canGoPrev = computed(
@@ -30,7 +38,7 @@
   );
   const frontier = computed(() => {
     const notValidatedIndex = validated.value.findIndex((v) => !v);
-    return notValidatedIndex === -1 ? questions.length : notValidatedIndex;
+    return notValidatedIndex === -1 ? props.questions.length : notValidatedIndex;
   });
   const canEditSelection = computed(() => {
     if (phase.value !== "quiz") {
@@ -40,7 +48,7 @@
     const index = viewIndex.value;
     return (
       index === frontier.value &&
-      index < questions.length &&
+      index < props.questions.length &&
       !validated.value[index]
     );
   });
@@ -58,7 +66,7 @@
   const errorReviewIndices = computed(() => {
     const out: number[] = [];
 
-    for (let i = 0; i < questions.length; i++) {
+    for (let i = 0; i < props.questions.length; i++) {
       if (validated.value[i] && !wasCorrect.value[i]) {
         out.push(i);
       }
@@ -67,7 +75,7 @@
   });
 
   watch(
-    () => questions,
+    () => props.questions,
     () => {
       initFromQuestions();
     },
@@ -89,7 +97,21 @@
   }
 
   function initFromQuestions() {
-    const questionsCount = questions.length;
+    if (props.restoredState && !hasRestoredSession) {
+      hasRestoredSession = true;
+      viewIndex.value = props.restoredState.viewIndex;
+      validated.value = [...props.restoredState.validated];
+      wasCorrect.value = [...props.restoredState.wasCorrect];
+      draftRadioIndex.value = [...props.restoredState.draftRadioIndex];
+      draftCheckboxIndices.value = props.restoredState.draftCheckboxIndices.map(
+        (arr) => [...arr],
+      );
+      phase.value = "quiz";
+      validateBlockedMessage.value = "";
+      return;
+    }
+
+    const questionsCount = props.questions.length;
     validated.value = Array(questionsCount).fill(false);
     wasCorrect.value = Array(questionsCount).fill(null);
     draftRadioIndex.value = Array(questionsCount).fill(null);
@@ -102,6 +124,21 @@
     validateBlockedMessage.value = "";
   }
 
+  function saveSession() {
+    if (!props.course) {
+      return;
+    }
+    saveToStorage({
+      course: props.course,
+      questions: props.questions,
+      viewIndex: viewIndex.value,
+      validated: validated.value,
+      wasCorrect: wasCorrect.value,
+      draftRadioIndex: draftRadioIndex.value,
+      draftCheckboxIndices: draftCheckboxIndices.value,
+    });
+  }
+
   function goPrev() {
     if (canGoPrev.value) {
       viewIndex.value--;
@@ -111,6 +148,7 @@
   function goNext() {
     if (canGoNext.value) {
       viewIndex.value++;
+      saveSession();
     }
   }
 
@@ -126,10 +164,10 @@
   function validateCurrent() {
     validateBlockedMessage.value = "";
     const i = frontier.value;
-    if (i >= questions.length || validated.value[i]) {
+    if (i >= props.questions.length || validated.value[i]) {
       return;
     }
-    const question = questions[i]?.question;
+    const question = props.questions[i]?.question;
     if (!question) {
       return;
     }
@@ -157,7 +195,7 @@
   function answeredStats() {
     let answered = 0;
     let correct = 0;
-    const n = questions.length;
+    const n = props.questions.length;
     for (let i = 0; i < n; i++) {
       if (validated.value[i]) {
         answered++;
@@ -170,6 +208,7 @@
   }
 
   function goToResults() {
+    clearStorage();
     phase.value = "results";
     const { answered, correct, total } = answeredStats();
     emit("finished", { answered, correct, total });
@@ -180,6 +219,7 @@
   }
 
   function resetQuiz() {
+    clearStorage();
     initFromQuestions();
   }
 

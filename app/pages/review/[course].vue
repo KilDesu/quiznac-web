@@ -3,6 +3,7 @@
 
   import type { QSelectProps } from "quasar";
   import type { Chapter, Question } from "~/types";
+  import type { QuizSessionData } from "~/composables/quizSession";
 
   definePageMeta({
     middleware: "course-validation",
@@ -32,6 +33,10 @@
   const chaptersOptions = ref<Chapter[]>([]);
   const questions = ref<QuestionData[]>([]);
   const readyToRevise = ref(false);
+  const restoredState = ref<QuizSessionData | undefined>();
+  const showResumeDialog = ref(false);
+
+  const { load: loadSession, clear: clearSession } = useQuizSession();
 
   const course = computed(() => getCourseParam(route.params));
   const courseData = computed(() => {
@@ -182,66 +187,60 @@
       chapter,
     }));
   }
+
+  onMounted(() => {
+    const session = loadSession();
+    if (session && session.course === course.value) {
+      restoredState.value = session;
+      showResumeDialog.value = true;
+    }
+  });
+
+  function handleResume() {
+    if (!restoredState.value) {
+      return;
+    }
+    questions.value = restoredState.value.questions;
+    readyToRevise.value = true;
+  }
+
+  function handleDiscard() {
+    clearSession();
+    restoredState.value = undefined;
+  }
 </script>
 
 <template>
-  <Transition>
-    <template v-if="Object.keys(data).length">
-      <QPage
-        v-if="courseData && Object.values(courseData).some((q) => q.length)"
-      >
-        <QCard v-if="!readyToRevise" class="surface-container-low">
-          <QCardSection class="text-h6 q-pb-none">
-            Avant de commencer à réviser
-          </QCardSection>
+  <div>
+    <Transition>
+      <template v-if="Object.keys(data).length">
+        <QPage
+          v-if="courseData && Object.values(courseData).some((q) => q.length)"
+        >
+          <QCard v-if="!readyToRevise" class="surface-container-low">
+            <QCardSection class="text-h6 q-pb-none">
+              Avant de commencer à réviser
+            </QCardSection>
 
-          <QCardSection>
-            <AppSelect
-              v-model="options.chapters"
-              :options="chaptersOptions"
-              label="Chapitres à réviser"
-              hint="Si aucun chapitre n'est sélectionné, tous les chapitres seront utilisés"
-              input-debounce="500"
-              use-input
-              multiple
-              @filter="filterFn"
-              @keydown.delete="handleDeleteKey"
-            />
-          </QCardSection>
-
-          <QCardSection class="text-body1">
-            <span class="q-mr-md">Limiter le nombre de questions ?</span>
-
-            <QBtnToggle
-              v-model="options.limitQuestions"
-              toggle-color="primary-container"
-              toggle-text-color="on-primary-container"
-              rounded
-              :options="[
-                {
-                  label: 'Oui',
-                  value: true,
-                },
-                {
-                  label: 'Non',
-                  value: false,
-                },
-              ]"
-            />
-
-            <div v-if="options.limitQuestions" class="q-mt-sm">
-              <AppInput
-                v-model.number="options.questionsCount"
-                type="number"
-                label="Nombre de questions"
+            <QCardSection>
+              <AppSelect
+                v-model="options.chapters"
+                :options="chaptersOptions"
+                label="Chapitres à réviser"
+                hint="Si aucun chapitre n'est sélectionné, tous les chapitres seront utilisés"
+                input-debounce="500"
+                use-input
+                multiple
+                @filter="filterFn"
+                @keydown.delete="handleDeleteKey"
               />
+            </QCardSection>
 
-              <span class="q-mr-md">
-                Homogénéiser le nombre de questions par chapitre ?
-              </span>
+            <QCardSection class="text-body1">
+              <span class="q-mr-md">Limiter le nombre de questions ?</span>
 
               <QBtnToggle
-                v-model="options.splitEvenly"
+                v-model="options.limitQuestions"
                 toggle-color="primary-container"
                 toggle-text-color="on-primary-container"
                 rounded
@@ -256,29 +255,69 @@
                   },
                 ]"
               />
-            </div>
-          </QCardSection>
 
-          <QCardActions align="center">
-            <AppBtn
-              :label="`Commencer à réviser ${questions.length} ${handlePlural('question', questions.length)}`"
-              :disable="!questions.length"
-              :class="questions.length ? 'primary' : 'surface-variant'"
-              @click="readyToRevise = true"
-            />
-          </QCardActions>
-        </QCard>
+              <div v-if="options.limitQuestions" class="q-mt-sm">
+                <AppInput
+                  v-model.number="options.questionsCount"
+                  type="number"
+                  label="Nombre de questions"
+                />
 
-        <QuestionsDisplay v-else :questions />
-      </QPage>
+                <span class="q-mr-md">
+                  Homogénéiser le nombre de questions par chapitre ?
+                </span>
 
-      <QPage v-else>
-        <div class="text-h1 text-center">
-          Ce cours n'a encore aucune question.
-        </div>
-      </QPage>
-    </template>
-  </Transition>
+                <QBtnToggle
+                  v-model="options.splitEvenly"
+                  toggle-color="primary-container"
+                  toggle-text-color="on-primary-container"
+                  rounded
+                  :options="[
+                    {
+                      label: 'Oui',
+                      value: true,
+                    },
+                    {
+                      label: 'Non',
+                      value: false,
+                    },
+                  ]"
+                />
+              </div>
+            </QCardSection>
+
+            <QCardActions align="center">
+              <AppBtn
+                :label="`Commencer à réviser ${questions.length} ${handlePlural('question', questions.length)}`"
+                :disable="!questions.length"
+                :class="questions.length ? 'primary' : 'surface-variant'"
+                @click="readyToRevise = true"
+              />
+            </QCardActions>
+          </QCard>
+
+          <QuestionsDisplay
+            v-else
+            :questions
+            :course="course"
+            :restored-state="restoredState"
+          />
+        </QPage>
+
+        <QPage v-else>
+          <div class="text-h1 text-center">
+            Ce cours n'a encore aucune question.
+          </div>
+        </QPage>
+      </template>
+    </Transition>
+
+    <ResumeSessionDialog
+      v-model="showResumeDialog"
+      @resume="handleResume"
+      @discard="handleDiscard"
+    />
+  </div>
 </template>
 
 <style>
