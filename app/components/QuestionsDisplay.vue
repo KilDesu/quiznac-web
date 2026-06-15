@@ -369,6 +369,7 @@
 
     validated.value[i] = true;
     wasCorrect.value[i] = ok;
+    saveSession();
   }
 
   // ─── Statistiques et résultats ────────────────────────────────────────────────
