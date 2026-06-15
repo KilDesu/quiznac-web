@@ -83,16 +83,11 @@
   const wasCorrect = ref<(boolean | null)[]>([]);
 
   /**
-   * Index de la réponse sélectionnée (radio) pour chaque question à choix unique.
-   * `null` si aucune sélection n'a été faite.
+   * Indices des réponses sélectionnées par l'utilisateur pour chaque question.
+   * Représentation unifiée : un choix unique est un tableau à un élément (ex. `[2]`),
+   * un choix multiple est un tableau trié de plusieurs indices (ex. `[0, 2, 3]`).
    */
-  const draftRadioIndex = ref<(number | null)[]>([]);
-
-  /**
-   * Indices des réponses cochées pour chaque question à choix multiples.
-   * Chaque entrée est un tableau trié d'indices de réponses.
-   */
-  const draftCheckboxIndices = ref<number[][]>([]);
+  const draftSelections = ref<number[][]>([]);
 
   /** Message d'erreur affiché quand la validation est bloquée (ex. : aucune bonne réponse configurée). */
   const validateBlockedMessage = ref("");
@@ -160,7 +155,7 @@
 
   /**
    * Options formatées pour le composant `QOptionGroup` (radio) de la question courante.
-   * Chaque option contient un `label` lisible et un `value` correspondant à l'index de la réponse.
+   * Chaque option contient un `label` et un `value` correspondant à l'index de la réponse.
    */
   const radioOptions = computed(() => {
     const question = currentQuestionData.value?.question;
@@ -168,7 +163,7 @@
       return [];
     }
     return question.answers.map((answer, index) => ({
-      label: answer.label.trim() || `Réponse ${index + 1}`,
+      label: answer.label,
       value: index,
     }));
   });
@@ -251,10 +246,9 @@
       viewIndex.value = props.restoredState.viewIndex;
       validated.value = [...props.restoredState.validated];
       wasCorrect.value = [...props.restoredState.wasCorrect];
-      draftRadioIndex.value = [...props.restoredState.draftRadioIndex];
-      draftCheckboxIndices.value = props.restoredState.draftCheckboxIndices.map(
-        (arr) => [...arr],
-      );
+      draftSelections.value = props.restoredState.draftSelections.map((arr) => [
+        ...arr,
+      ]);
       phase.value = "quiz";
       validateBlockedMessage.value = "";
       return;
@@ -263,11 +257,7 @@
     const questionsCount = props.questions.length;
     validated.value = Array(questionsCount).fill(false);
     wasCorrect.value = Array(questionsCount).fill(null);
-    draftRadioIndex.value = Array(questionsCount).fill(null);
-    draftCheckboxIndices.value = Array.from(
-      { length: questionsCount },
-      () => [],
-    );
+    draftSelections.value = Array.from({ length: questionsCount }, () => []);
     viewIndex.value = 0;
     phase.value = "quiz";
     validateBlockedMessage.value = "";
@@ -287,8 +277,7 @@
       viewIndex: viewIndex.value,
       validated: validated.value,
       wasCorrect: wasCorrect.value,
-      draftRadioIndex: draftRadioIndex.value,
-      draftCheckboxIndices: draftCheckboxIndices.value,
+      draftSelections: draftSelections.value,
     });
   }
 
@@ -335,9 +324,7 @@
    * Déroulement :
    * 1. Vérifie que la question n'est pas déjà validée et qu'elle existe.
    * 2. Vérifie qu'au moins une bonne réponse est configurée ; sinon, affiche un message d'erreur.
-   * 3. Compare la sélection de l'utilisateur aux réponses correctes :
-   *    - Choix multiples → comparaison d'ensembles via `setsEqual`.
-   *    - Choix unique → comparaison directe de l'index sélectionné.
+   * 3. Compare la sélection de l'utilisateur aux réponses correctes via `setsEqual`.
    * 4. Marque la question comme validée et enregistre le résultat (correct/incorrect).
    */
   function validateCurrent() {
@@ -358,14 +345,8 @@
       return;
     }
 
-    let ok = false;
-    if (isMultipleCorrect(question)) {
-      const picked = draftCheckboxIndices.value[i] ?? [];
-      ok = setsEqual(picked, correct);
-    } else {
-      const sel = draftRadioIndex.value[i];
-      ok = correct.length === 1 && sel === correct[0];
-    }
+    const picked = draftSelections.value[i] ?? [];
+    const ok = setsEqual(picked, correct);
 
     validated.value[i] = true;
     wasCorrect.value[i] = ok;
@@ -427,7 +408,7 @@
   // ─── Gestion des sélections utilisateur ───────────────────────────────────────
 
   /**
-   * Ajoute ou retire un index de réponse dans les checkboxes d'une question à choix multiples.
+   * Ajoute ou retire un index de réponse pour une question à choix multiples.
    * Ne fait rien si la question n'est pas modifiable ou si l'index ne correspond pas
    * à la question courante.
    *
@@ -435,7 +416,7 @@
    * @param answerIndex - Index de la réponse à cocher/décocher.
    * @param checked - `true` pour cocher, `false` pour décocher.
    */
-  function toggleCheckbox(
+  function toggleAnswer(
     questionIndex: number,
     answerIndex: number,
     checked: boolean,
@@ -443,23 +424,22 @@
     if (!canEditSelection.value || viewIndex.value !== questionIndex) {
       return;
     }
-    const row = draftCheckboxIndices.value[questionIndex] ?? [];
-    const next = checked
+    const row = draftSelections.value[questionIndex] ?? [];
+    draftSelections.value[questionIndex] = checked
       ? [...new Set([...row, answerIndex])].sort((a, b) => a - b)
       : row.filter((x) => x !== answerIndex);
-    draftCheckboxIndices.value[questionIndex] = next;
   }
 
   /**
-   * Met à jour la sélection radio d'une question à choix unique.
+   * Sélectionne une unique réponse pour une question à choix unique.
    * @param questionIndex - Index de la question concernée.
-   * @param value - Index de la réponse sélectionnée, ou `null` pour désélectionner.
+   * @param answerIndex - Index de la réponse sélectionnée.
    */
-  function setRadio(questionIndex: number, value: number | null) {
+  function selectAnswer(questionIndex: number, answerIndex: number) {
     if (!canEditSelection.value || viewIndex.value !== questionIndex) {
       return;
     }
-    draftRadioIndex.value[questionIndex] = value;
+    draftSelections.value[questionIndex] = [answerIndex];
   }
 
   // ─── Formatage d'affichage ────────────────────────────────────────────────────
@@ -475,27 +455,18 @@
   function answerLabels(question: Question, indices: number[]): string {
     return indices
       .filter((i) => i >= 0 && i < question.answers.length)
-      .map((i) => question.answers[i]!.label.trim() || `Réponse ${i + 1}`)
+      .map((i) => question.answers[i]!.label)
       .join(", ");
   }
 
   /**
    * Retourne les indices des réponses sélectionnées par l'utilisateur pour une question donnée.
-   * Adapte automatiquement la source (checkbox ou radio) selon le type de question.
    *
-   * @param question - La question concernée.
    * @param questionIndex - Index de la question dans le tableau.
    * @returns Indices des réponses choisies par l'utilisateur.
    */
-  function userPickedIndices(
-    question: Question,
-    questionIndex: number,
-  ): number[] {
-    if (isMultipleCorrect(question)) {
-      return [...(draftCheckboxIndices.value[questionIndex] ?? [])];
-    }
-    const radioIndex = draftRadioIndex.value[questionIndex];
-    return radioIndex === null || radioIndex === undefined ? [] : [radioIndex];
+  function userPickedIndices(questionIndex: number): number[] {
+    return [...(draftSelections.value[questionIndex] ?? [])];
   }
 
   function getEndMessage(percentage: number) {
@@ -635,15 +606,13 @@
             class="row items-center no-wrap q-gutter-sm"
           >
             <QCheckbox
-              :model-value="
-                draftCheckboxIndices[viewIndex]?.includes(idx) ?? false
-              "
+              :model-value="draftSelections[viewIndex]?.includes(idx) ?? false"
               :disable="!canEditSelection"
               :label="answer.label"
               dense
               class="text-body1"
               @update:model-value="
-                (v) => toggleCheckbox(viewIndex, idx, Boolean(v))
+                (v) => toggleAnswer(viewIndex, idx, Boolean(v))
               "
             />
           </div>
@@ -651,12 +620,12 @@
 
         <QOptionGroup
           v-else
-          :model-value="draftRadioIndex[viewIndex]"
+          :model-value="draftSelections[viewIndex]?.[0] ?? null"
           :options="radioOptions"
           type="radio"
           color="primary"
           :disable="!canEditSelection"
-          @update:model-value="(v) => setRadio(viewIndex, v as number | null)"
+          @update:model-value="(v) => selectAnswer(viewIndex, v as number)"
         />
 
         <template v-if="validated[viewIndex]">
@@ -725,12 +694,7 @@
           <AppBtn
             v-else-if="canEditSelection"
             label="Valider"
-            :disable="
-              isMultipleCorrect(currentQuestionData!.question)
-                ? (draftCheckboxIndices[viewIndex] ?? []).length === 0
-                : draftRadioIndex[viewIndex] === undefined ||
-                  draftRadioIndex[viewIndex] === null
-            "
+            :disable="!(draftSelections[viewIndex] ?? []).length"
             no-caps
             class="primary"
             @click="validateCurrent"
@@ -814,10 +778,7 @@
                   {{
                     answerLabels(
                       questions[questionIndex]!.question,
-                      userPickedIndices(
-                        questions[questionIndex]!.question,
-                        questionIndex,
-                      ),
+                      userPickedIndices(questionIndex),
                     ) || "—"
                   }}
                 </div>
