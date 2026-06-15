@@ -539,97 +539,98 @@
 
       <QSeparator style="background: var(--outline)" />
 
-      <QCardSection v-if="currentQuestionData" class="column q-gutter-md">
-        <div class="text-h6" style="word-break: break-word">
-          {{ currentQuestionData.question.label }}
-        </div>
-
-        <div
-          v-if="currentQuestionData.question.image"
-          :key="currentQuestionData.question.id"
-          class="flex justify-center q-pr-md"
-          style="width: 100%; min-width: 0"
-        >
-          <NuxtImg
-            v-slot="{ src, isLoaded }"
-            :src="currentQuestionData.question.image"
-            :custom="true"
-          >
-            <img
-              v-if="isLoaded"
-              :alt="`Image relative à la question &quot;${currentQuestionData.question.label}&quot;`"
-              :src
-              class="rounded-borders block"
-              style="
-                max-width: 100vw;
-                max-height: 20rem;
-                object-fit: contain;
-                border-radius: 0.75rem;
-              "
-            />
-
-            <QSkeleton
-              v-else
-              height="20rem"
-              width="32rem"
-              animation="pulse"
-              class="rounded-borders block"
-              style="
-                max-width: 100vw;
-                max-height: 20rem;
-                object-fit: contain;
-                border-radius: 0.75rem;
-              "
-            />
-          </NuxtImg>
-        </div>
-
-        <QBanner
-          v-if="validateBlockedMessage"
-          dense
-          rounded
-          class="error-container q-pa-sm"
-        >
-          {{ validateBlockedMessage }}
-        </QBanner>
-
-        <div
-          v-if="isMultipleCorrect(currentQuestionData.question)"
-          class="column q-gutter-sm"
-        >
-          <span class="text-subtitle2 text-on-surface-variant">
-            Plusieurs réponses correctes possibles
-          </span>
-          <div
-            v-for="(answer, idx) in currentQuestionData.question.answers"
-            :key="idx"
-            class="row items-center no-wrap q-gutter-sm"
-          >
-            <QCheckbox
-              :model-value="draftSelections[viewIndex]?.includes(idx) ?? false"
-              :disable="!canEditSelection"
-              :label="answer.label"
-              dense
-              class="text-body1"
-              @update:model-value="
-                (v) => toggleAnswer(viewIndex, idx, Boolean(v))
-              "
-            />
+      <template v-if="currentQuestionData">
+        <QCardSection class="column q-gutter-md">
+          <div class="text-h6" style="word-break: break-word">
+            {{ currentQuestionData.question.label }}
           </div>
-        </div>
 
-        <QOptionGroup
-          v-else
-          :model-value="draftSelections[viewIndex]?.[0] ?? null"
-          :options="radioOptions"
-          type="radio"
-          color="primary"
-          :disable="!canEditSelection"
-          @update:model-value="(v) => selectAnswer(viewIndex, v as number)"
-        />
+          <div
+            v-if="currentQuestionData.question.image"
+            :key="currentQuestionData.question.id"
+            class="flex justify-center q-pr-md"
+            style="width: 100%; min-width: 0"
+          >
+            <NuxtImg
+              v-slot="{ src, isLoaded }"
+              :src="currentQuestionData.question.image"
+              :custom="true"
+            >
+              <img
+                v-if="isLoaded"
+                :alt="`Image relative à la question &quot;${currentQuestionData.question.label}&quot;`"
+                :src
+                class="rounded-borders block"
+                style="
+                  max-width: 100vw;
+                  max-height: 20rem;
+                  object-fit: contain;
+                  border-radius: 0.75rem;
+                "
+              />
 
-        <template v-if="validated[viewIndex]">
-          <QSeparator style="background: var(--outline)" />
+              <QSkeleton
+                v-else
+                height="20rem"
+                width="32rem"
+                animation="pulse"
+                class="rounded-borders block"
+                style="
+                  max-width: 100vw;
+                  max-height: 20rem;
+                  object-fit: contain;
+                  border-radius: 0.75rem;
+                "
+              />
+            </NuxtImg>
+          </div>
+        </QCardSection>
+
+        <QCardSection v-if="validateBlockedMessage">
+          <QBanner dense rounded class="error-container q-pa-sm">
+            {{ validateBlockedMessage }}
+          </QBanner>
+        </QCardSection>
+
+        <QCardSection>
+          <div
+            v-if="isMultipleCorrect(currentQuestionData.question)"
+            class="column q-gutter-sm"
+          >
+            <span class="text-subtitle2 text-on-surface-variant">
+              Plusieurs réponses correctes possibles
+            </span>
+            <div
+              v-for="(answer, idx) in currentQuestionData.question.answers"
+              :key="idx"
+              class="row items-center no-wrap q-gutter-sm"
+            >
+              <QCheckbox
+                :model-value="
+                  draftSelections[viewIndex]?.includes(idx) ?? false
+                "
+                :disable="!canEditSelection"
+                :label="answer.label"
+                dense
+                class="text-body1"
+                @update:model-value="
+                  (v) => toggleAnswer(viewIndex, idx, Boolean(v))
+                "
+              />
+            </div>
+          </div>
+
+          <QOptionGroup
+            v-else
+            :model-value="draftSelections[viewIndex]?.[0] ?? null"
+            :options="radioOptions"
+            type="radio"
+            color="primary"
+            :disable="!canEditSelection"
+            @update:model-value="(v) => selectAnswer(viewIndex, v as number)"
+          />
+        </QCardSection>
+        <QCardSection v-if="validated[viewIndex]">
           <QBanner
             dense
             rounded
@@ -670,8 +671,8 @@
               {{ currentQuestionData.question.explanation }}
             </div>
           </QBanner>
-        </template>
-      </QCardSection>
+        </QCardSection>
+      </template>
 
       <QSeparator style="background: var(--outline)" />
 
